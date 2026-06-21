@@ -20,7 +20,7 @@ grants. Nothing in this file grants rights over third-party material, and no
 third-party author or project endorses Color Equalizer.
 
 Terms for obtaining and using compiled Color Equalizer OFX releases are
-provided separately through the official distribution channel.
+provided in `BINARY_LICENSE.md`.
 
 THE PROPRIETARY MATERIAL IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF

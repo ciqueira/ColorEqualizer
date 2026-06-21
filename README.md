@@ -79,20 +79,22 @@ handling, and numerical safeguards.
 
 ## Get Color Equalizer
 
-Color Equalizer is available through
+Color Equalizer is distributed through Nexus and available in
 [MCNexus](https://github.com/ciqueira/MCNexus), the official application for
-discovering and managing MC plugins.
+discovering, installing, and managing plugins.
 
-MCNexus keeps the plugin, license, and available updates together in one place.
-It also provides the current information for installation, activation,
-compatibility, and product support.
+Nexus provides the distribution, licensing, updates, and product-support
+infrastructure. MCNexus brings these services together in the desktop
+application and provides current installation, activation, and compatibility
+information.
 
 ### Get your license key
 
 [![Claim Free License](https://img.shields.io/badge/Claim%20License-GitHub%20Login-2ea44f?logo=github)](https://bridge.magnociqueira.com.br/github/claim?t=colorequalizer-oss&tmpl=bf1b283c-c8ed-4608-91a9-348a342a55a4&sig=67251aabd72f21ba)
 
 Use the button above to request your Color Equalizer key with your GitHub
-account. The key is then managed through MCNexus.
+account. The license is issued through Nexus, and the key is activated and
+managed in MCNexus.
 
 ## Project information
 
@@ -101,5 +103,5 @@ is intended for inspection, documentation, and technical transparency; it
 does not make the project open-source software.
 
 Licensing and required community notices are available in
-[LICENSE.md](LICENSE.md) and
+[LICENSE.md](LICENSE.md), [BINARY_LICENSE.md](BINARY_LICENSE.md), and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
