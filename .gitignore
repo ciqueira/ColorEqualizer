@@ -1,0 +1,20 @@
+# macOS metadata
+.DS_Store
+._*
+
+# Build artifacts
+src/*.o
+src/*.obj
+src/*.air
+src/*.metallib
+src/*.ofx
+src/*.lib
+src/*.exp
+src/*.d
+src/*.ofx.bundle/
+
+# IDE and local build directories
+.vscode/
+.idea/
+build/
+DerivedData/

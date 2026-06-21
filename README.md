@@ -1,48 +1,105 @@
-# Color Equalizer (Selective Isolation)
+# Color Equalizer
 
-10-band chromatic isolation.
-Inspired by darktable’s scene-referred processing architecture, Color Equalizer utilizes guided filters and multiple polarized color spaces for selective manipulation of hue, saturation, and brightness, minimizing common artifacts found in curve tools.
+### Selective color shaping with ten independent bands
 
----
+Color Equalizer is an OFX color tool designed for precise, natural control of
+hue, saturation, and brightness.
 
-## Signal Engineering and Key Features
+Inspired by the scene-referred color equalizer workflow popularized by
+darktable, it expands conventional six-vector tools into ten smoothly
+connected color regions:
 
-Color Equalizer was developed to maintain image integrity even under extreme corrections on the timeline, internally managing signal consistency directly through the plugin.
+```text
+Red · Orange · Yellow · Lime · Green
+Teal · Cyan · Blue · Purple · Magenta
+```
 
-* **Guided Filter:** An adaptive smoothing algorithm that protects transitions between modified areas and the rest of the image, reducing pixel fragmentation and chromatic noise.
-* **10-Band Resolution:** An expansion of traditional 6-vector control into 10 independent, interpolated bands: Red, Orange, Yellow, Lime, Green, Teal, Cyan, Blue, Purple, and Magenta.
-* **Independent Modules:** Processing is divided into three layers for complete control over the image signal:
-    * **Hue:** Precise angular shift of the source color.
-    * **Saturation:** Intensification or attenuation of color purity per band.
-    * **Brightness:** Isolated photometric gain adjustment per color vector.
+The goal is simple: make selective color adjustments feel continuous and
+musical, without turning a gradient into a collection of isolated corrections.
 
----
+## Shape color, not masks
 
-## Available Models and Color Spaces
+Each color region offers independent control over:
 
-Switch the mathematical basis of calculation to match your pipeline requirements:
+- **Hue** — move a color toward its neighboring tones.
+- **Saturation** — strengthen or soften color intensity.
+- **Brightness** — reshape the presence of a color without a separate key.
 
-* **Chen (Spherical Model):** Maps the RGB cube into spherical coordinates. It eliminates typical HSV visual distortions, delivering smoother, more harmonious gradients.
-* **Reuleaux (Filmic):** A cylindrical/spherical model for film characterization (inspired by the *Cone Coords* concept). Delivers natural color transitions with a subtractive behavior.
-* **HCL (Perceptual):** Focused on human visual perception with weights mapped to Rec.709. Ensures an exact separation between color purity (*Chroma*) and actual brightness (*Luminance*).
-* **OKLCH (Uniformity):** A polar representation of the Oklab color space. Designed to offer superior numerical stability, correcting the classic hue shift in the blue channel (common in CIELAB) for predictable gradients.
+The ten controls are connected through periodic interpolation, so neighboring
+bands blend around the complete hue circle. Adjustments remain responsive
+without creating hard boundaries between red and magenta or between any other
+adjacent colors.
 
----
+## Two different views of color
 
-## Development & Installation
+Color Equalizer includes two processing models. They share the same controls
+but produce different creative responses.
 
-The plugin is currently distributed and updated through the **[Nexus](https://github.com/ciqueira/MCNexus)** ecosystem, supporting seamless license activation, version switching, and multi-platform deployment (Windows & macOS).
+### RGB Spherical
 
-Get Your Free License
+RGB Spherical reorganizes the selected log signal around the neutral axis.
+It is useful when you want a direct relationship between color direction,
+distance from gray, and signal intensity.
 
-Claim your license key in seconds — no forms, no waiting.
+Its opponent-space geometry helps preserve neutral tones while providing
+smooth movement through highly saturated regions.
+
+### OKLCH
+
+OKLCH offers a perceptual view of color based on Oklab. It is especially
+useful for controlled hue movement and intuitive separation between chroma and
+lightness.
+
+The implementation preserves the smooth compressed response of the original
+Color Equalizer while using corrected color-space matrices and dedicated
+handling for difficult blue and purple gradients.
+
+## Designed for modern color pipelines
+
+The plugin supports:
+
+- ACES AP1 / ACEScct
+- DaVinci Wide Gamut / Intermediate
+- ARRI Wide Gamut 3 / LogC3 EI800
+- ARRI Wide Gamut 4 / LogC4
+
+RGB Spherical normalizes the selected log signal internally so that its
+geometry reacts consistently across supported pipelines. OKLCH preserves the
+encoded-signal response of the original equalizer.
+
+## GPU processing
+
+Pixel processing runs on:
+
+- **Metal** on macOS
+- **CUDA** on Windows and Linux
+
+The two backends share the same color mathematics, equalizer response, alpha
+handling, and numerical safeguards.
+
+## Get Color Equalizer
+
+Color Equalizer is available through
+[MCNexus](https://github.com/ciqueira/MCNexus), the official application for
+discovering and managing MC plugins.
+
+MCNexus keeps the plugin, license, and available updates together in one place.
+It also provides the current information for installation, activation,
+compatibility, and product support.
+
+### Get your license key
 
 [![Claim Free License](https://img.shields.io/badge/Claim%20License-GitHub%20Login-2ea44f?logo=github)](https://bridge.magnociqueira.com.br/github/claim?t=colorequalizer-oss&tmpl=bf1b283c-c8ed-4608-91a9-348a342a55a4&sig=67251aabd72f21ba)
 
-**Steps:**
-1. Click the badge above
-2. Authorize with your GitHub account (read-only: name + email)
-3. Your license key appears — copy it
-4. Paste the key in the plugin's activation screen
+Use the button above to request your Color Equalizer key with your GitHub
+account. The key is then managed through MCNexus.
 
-> **Lost your key?** Click the link again — same account, same key, always.
+## Project information
+
+Color Equalizer is a source-available project. Public access to this repository
+is intended for inspection, documentation, and technical transparency; it
+does not make the project open-source software.
+
+Licensing and required community notices are available in
+[LICENSE.md](LICENSE.md) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
