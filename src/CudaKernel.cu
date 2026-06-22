@@ -259,16 +259,16 @@ __device__ float3 cu_convert(float3 rgb, int st, bool dir, int cs) {
     if (st >= 11) {
       return cu_OKLAB_to_OKLCH(cu_XYZ_to_Oklab(cu_rgb_to_xyz(rgb, cs)));
     }
+    if (st == 8) return cu_RGB_to_Spherical(rgb);
     float3 log_rgb = cu_normalize_log(rgb, cs);
-    if (st == 8) return cu_RGB_to_Spherical(log_rgb);
     return log_rgb;
   }
 
   if (st >= 11) {
     return cu_xyz_to_rgb(cu_Oklab_to_XYZ(cu_OKLCH_to_OKLAB(rgb)), cs);
   }
+  if (st == 8) return cu_Spherical_to_RGB(rgb);
   float3 log_rgb = rgb;
-  if (st == 8) log_rgb = cu_Spherical_to_RGB(rgb);
   return cu_denormalize_log(log_rgb, cs);
 }
 
@@ -341,28 +341,6 @@ __global__ void ColorEqualizerKernel(
     rgb.z /= alpha;
   }
 
-  if (spaceType == 8) {
-    float3 log_rgb = cu_normalize_log(rgb, inputCS);
-    float peak =
-        max3f(fabsf(log_rgb.x), fabsf(log_rgb.y), fabsf(log_rgb.z));
-    bool invalid = peak < 1e-6f;
-    float mean = (log_rgb.x + log_rgb.y + log_rgb.z) / 3.f;
-    float minimum = fminf(log_rgb.x, fminf(log_rgb.y, log_rgb.z));
-    invalid = invalid || minimum < 0.f || mean <= EPSILON;
-    if (invalid) {
-      if (p_OutputPremultiplied != 0) {
-        rgb.x *= alpha;
-        rgb.y *= alpha;
-        rgb.z *= alpha;
-      }
-      p_Output[dstIdx + 0] = rgb.x;
-      p_Output[dstIdx + 1] = rgb.y;
-      p_Output[dstIdx + 2] = rgb.z;
-      p_Output[dstIdx + 3] = alpha;
-      return;
-    }
-  }
-
   // ── Single forward conversion ─────────────────────────────────────────
   float3 cs = cu_convert(rgb, spaceType, true, inputCS);
   float hue_normalized = cs.x;
@@ -375,15 +353,9 @@ __global__ void ColorEqualizerKernel(
 
   if (fabsf(h_delta) < 1e-6f && fabsf(s_gain - 1.f) < 1e-6f &&
       fabsf(l_delta) < 1e-6f) {
-    if (p_OutputPremultiplied != 0) {
-      rgb.x *= alpha;
-      rgb.y *= alpha;
-      rgb.z *= alpha;
-    }
-    p_Output[dstIdx + 0] = rgb.x;
-    p_Output[dstIdx + 1] = rgb.y;
-    p_Output[dstIdx + 2] = rgb.z;
-    p_Output[dstIdx + 3] = alpha;
+    if (p_OutputPremultiplied != 0) { rgb.x*=alpha; rgb.y*=alpha; rgb.z*=alpha; }
+    p_Output[dstIdx+0]=rgb.x; p_Output[dstIdx+1]=rgb.y;
+    p_Output[dstIdx+2]=rgb.z; p_Output[dstIdx+3]=alpha;
     return;
   }
 
@@ -395,8 +367,7 @@ __global__ void ColorEqualizerKernel(
   if (spaceType == 8) {
     float chroma_radius = cs.z * sinf(cs.y);
     float neutral_axis = cs.z * cosf(cs.y);
-    if (fabsf(chroma_radius) < 1e-7f)
-      chroma_radius = 0.f;
+    if (fabsf(chroma_radius) < 1e-7f) chroma_radius = 0.f;
     chroma_radius = fmaxf(0.f, chroma_radius * s_gain);
     if (neutral_axis > 1e-7f && chroma_radius > 0.f) {
       float theta = cs.x * 2.f * PI;
@@ -411,31 +382,28 @@ __global__ void ColorEqualizerKernel(
       if (kb < 0.f) limit = fminf(limit, base / -kb);
       chroma_radius = fminf(chroma_radius, limit);
     }
-    float weight =
-        chroma_radius / (chroma_radius + fabsf(neutral_axis) + EPSILON);
+    float weight = chroma_radius / (chroma_radius + fabsf(neutral_axis) + EPSILON);
     float brightness_gain = fmaxf(0.f, 1.f + l_delta * weight);
     chroma_radius *= brightness_gain;
     neutral_axis *= brightness_gain;
     cs.y = atan2f(chroma_radius, neutral_axis);
     cs.z = hypotf(chroma_radius, neutral_axis);
+
+    // ── Inverse conversion ────────────────────────────────────────────
+    rgb = cu_convert(cs, spaceType, false, inputCS);
   } else if (spaceType >= 11) {
     cs.y = fmaxf(0.f, cs.y * s_gain);
     float weight = cs.y;
     cs.z *= fmaxf(0.f, 1.f + l_delta * weight);
+    rgb = cu_convert(cs, spaceType, false, inputCS);
   } else {
     cs.y = clampf(cs.y * s_gain, 0.f, 1.f);
     float weight = cs.y;
     cs.z *= fmaxf(0.f, 1.f + l_delta * weight);
+    rgb = cu_convert(cs, spaceType, false, inputCS);
   }
 
-  // ── Single inverse conversion ─────────────────────────────────────────
-  rgb = cu_convert(cs, spaceType, false, inputCS);
-
-  if (p_OutputPremultiplied != 0) {
-    rgb.x *= alpha;
-    rgb.y *= alpha;
-    rgb.z *= alpha;
-  }
+  if (p_OutputPremultiplied != 0) { rgb.x*=alpha; rgb.y*=alpha; rgb.z*=alpha; }
   p_Output[dstIdx + 0] = rgb.x;
   p_Output[dstIdx + 1] = rgb.y;
   p_Output[dstIdx + 2] = rgb.z;

@@ -345,8 +345,8 @@ inline float3 convert_colorSpace_model(float3 rgb, int space_type, bool directio
             float3 oklab = XYZ_to_Oklab(xyz);
             return OKLAB_to_OKLCH(oklab);
         }
+        if (space_type == 8) return RGB_to_Spherical(rgb);
         const float3 log_rgb = normalize_log_signal(rgb, input_cs);
-        if (space_type == 8) return RGB_to_Spherical(log_rgb);
         return log_rgb;
     } else {
         if (space_type >= 11) {
@@ -354,8 +354,8 @@ inline float3 convert_colorSpace_model(float3 rgb, int space_type, bool directio
             float3 xyz   = Oklab_to_XYZ(oklab);
             return xyz_to_rgb(xyz, input_cs);
         }
+        if (space_type == 8) return Spherical_to_RGB(rgb);
         float3 log_rgb = rgb;
-        if (space_type == 8) log_rgb = Spherical_to_RGB(rgb);
         return denormalize_log_signal(log_rgb, input_cs);
     }
 }
@@ -482,21 +482,6 @@ inline float3 sample_lut_1d(const float* lut, int num_points, float normalized_x
 
 inline float3 apply_equalizers_parallel(float3 rgb, int space_type, int input_cs,
                                         const float* lut, int lut_size) {
-    if (space_type == 8) {
-        const float3 log_rgb = normalize_log_signal(rgb, input_cs);
-        const float peak = max3(fabsf(log_rgb.x), fabsf(log_rgb.y),
-                                fabsf(log_rgb.z));
-        if (peak < 1e-6f)
-            return rgb;
-
-        const float mean = (log_rgb.x + log_rgb.y + log_rgb.z) / 3.0f;
-        const float minimum = fminf(log_rgb.x, fminf(log_rgb.y, log_rgb.z));
-        // RGB Spherical uses a positive normalized RGB cube. Preserve
-        // undershoots below encoded black instead of folding its geometry.
-        if (minimum < 0.0f || mean <= EPSILON)
-            return rgb;
-    }
-
     // ── Single forward conversion ─────────────────────────────────────────
     float3 cs = convert_colorSpace_model(rgb, space_type, true, input_cs);
     float hue_normalized = cs.x;
@@ -550,6 +535,10 @@ inline float3 apply_equalizers_parallel(float3 rgb, int space_type, int input_cs
 
         cs.y = atan2f(chroma_radius, neutral_axis);
         cs.z = hypotf(chroma_radius, neutral_axis);
+
+        // ── Inverse conversion ───────────────────────────────────────────
+        float3 out = convert_colorSpace_model(cs, space_type, false, input_cs);
+        return out;
     } else if (space_type >= 11) {
         // OKLCH has no intrinsic upper bound on chroma. A hard C<=1 clamp
         // creates visible slope changes in saturated and HDR gradients.

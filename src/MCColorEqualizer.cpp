@@ -25,8 +25,8 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
 #include <shellapi.h>
+#include <windows.h>
 #endif
 #include "ofxsImageEffect.h"
 #include "ofxsMultiThread.h"
@@ -39,9 +39,9 @@
 #define kPluginVersion PLUGIN_VERSION
 #endif
 
-#define kPluginName      "Color Equalizer"
+#define kPluginName "Color Equalizer"
 #define kPluginNameLabel "Color Equalizer " kPluginVersion
-#define kPluginGrouping  "MC Plugins"
+#define kPluginGrouping "MC Plugins"
 #define kPluginDescription                                                     \
   "10-Band Color Equalizer with Hue, Saturation and Brightness controls. "     \
   "Supports RGB Spherical and OKLCH color models."
@@ -125,23 +125,23 @@ static void openMCNexusApp() {
 // =============================================================================
 
 #ifndef __APPLE__
-extern "C" bool RunCudaKernel(
-    void *p_Stream, int p_RenderX1, int p_RenderY1, int p_RenderWidth,
-    int p_RenderHeight, int p_SrcBoundsX1, int p_SrcBoundsY1,
-    int p_DstBoundsX1, int p_DstBoundsY1, int p_SrcRowBytes,
-    int p_DstRowBytes, int p_InputPremultiplied, int p_OutputPremultiplied,
-    int p_inputCS, int p_spaceType, const float *p_Input, float *p_Output,
-    const float *p_Lut);
+extern "C" bool
+RunCudaKernel(void *p_Stream, int p_RenderX1, int p_RenderY1, int p_RenderWidth,
+              int p_RenderHeight, int p_SrcBoundsX1, int p_SrcBoundsY1,
+              int p_DstBoundsX1, int p_DstBoundsY1, int p_SrcRowBytes,
+              int p_DstRowBytes, int p_InputPremultiplied,
+              int p_OutputPremultiplied, int p_inputCS, int p_spaceType,
+              const float *p_Input, float *p_Output, const float *p_Lut);
 #endif
 
 #ifdef __APPLE__
-extern "C" bool RunMetalKernel(
-    void *p_CmdQ, int p_RenderX1, int p_RenderY1, int p_RenderWidth,
-    int p_RenderHeight, int p_SrcBoundsX1, int p_SrcBoundsY1,
-    int p_DstBoundsX1, int p_DstBoundsY1, int p_SrcRowBytes,
-    int p_DstRowBytes, int p_InputPremultiplied, int p_OutputPremultiplied,
-    int p_inputCS, int p_spaceType, const float *p_Input, float *p_Output,
-    const float *p_Lut);
+extern "C" bool
+RunMetalKernel(void *p_CmdQ, int p_RenderX1, int p_RenderY1, int p_RenderWidth,
+               int p_RenderHeight, int p_SrcBoundsX1, int p_SrcBoundsY1,
+               int p_DstBoundsX1, int p_DstBoundsY1, int p_SrcRowBytes,
+               int p_DstRowBytes, int p_InputPremultiplied,
+               int p_OutputPremultiplied, int p_inputCS, int p_spaceType,
+               const float *p_Input, float *p_Output, const float *p_Lut);
 #endif
 
 // =============================================================================
@@ -157,10 +157,9 @@ public:
   }
 
   void buildLut() {
-    colormath::build_equalizer_lut(_lut, 256, _params.spaceType,
-                                   _params.hueVals, _params.hueMaster,
-                                   _params.satVals, _params.satMaster,
-                                   _params.lumVals, _params.lumMaster);
+    colormath::build_equalizer_lut(
+        _lut, 256, _params.spaceType, _params.hueVals, _params.hueMaster,
+        _params.satVals, _params.satMaster, _params.lumVals, _params.lumMaster);
   }
 
   // ── GPU overrides ─────────────────────────────────────────────────────
@@ -192,12 +191,12 @@ public:
     const bool outputPremultiplied =
         _dstImg->getPreMultiplication() == OFX::eImagePreMultiplied;
 
-    const bool succeeded = RunCudaKernel(
-        _pCudaStream, renderX1, renderY1, renderX2 - renderX1,
-        renderY2 - renderY1, srcBounds.x1, srcBounds.y1, dstBounds.x1,
-        dstBounds.y1, srcRowBytes, dstRowBytes,
-        inputPremultiplied ? 1 : 0, outputPremultiplied ? 1 : 0,
-        _params.inputCS, _params.spaceType, input, output, _lut);
+    const bool succeeded =
+        RunCudaKernel(_pCudaStream, renderX1, renderY1, renderX2 - renderX1,
+                      renderY2 - renderY1, srcBounds.x1, srcBounds.y1,
+                      dstBounds.x1, dstBounds.y1, srcRowBytes, dstRowBytes,
+                      inputPremultiplied ? 1 : 0, outputPremultiplied ? 1 : 0,
+                      _params.inputCS, _params.spaceType, input, output, _lut);
     if (!succeeded)
       OFX::throwSuiteStatusException(kOfxStatFailed);
 #endif
@@ -230,12 +229,12 @@ public:
     const bool outputPremultiplied =
         _dstImg->getPreMultiplication() == OFX::eImagePreMultiplied;
 
-    const bool succeeded = RunMetalKernel(
-        _pMetalCmdQ, renderX1, renderY1, renderX2 - renderX1,
-        renderY2 - renderY1, srcBounds.x1, srcBounds.y1, dstBounds.x1,
-        dstBounds.y1, srcRowBytes, dstRowBytes,
-        inputPremultiplied ? 1 : 0, outputPremultiplied ? 1 : 0,
-        _params.inputCS, _params.spaceType, input, output, _lut);
+    const bool succeeded =
+        RunMetalKernel(_pMetalCmdQ, renderX1, renderY1, renderX2 - renderX1,
+                       renderY2 - renderY1, srcBounds.x1, srcBounds.y1,
+                       dstBounds.x1, dstBounds.y1, srcRowBytes, dstRowBytes,
+                       inputPremultiplied ? 1 : 0, outputPremultiplied ? 1 : 0,
+                       _params.inputCS, _params.spaceType, input, output, _lut);
     if (!succeeded)
       OFX::throwSuiteStatusException(kOfxStatFailed);
 #endif
@@ -471,7 +470,7 @@ void MCColorEqualizerFactory::describeInContext(
     ics->setLabels("Input Space", "Input Space", "Input Space");
     ics->appendOption("ACES AP1 / ACEScct");
     ics->appendOption("DaVinci Wide Gamut / Intermediate");
-    ics->appendOption("ARRI Wide Gamut 3 / LogC3 EI800");
+    ics->appendOption("ARRI Wide Gamut 3 / LogC3");
     ics->appendOption("ARRI Wide Gamut 4 / LogC4");
     ics->setDefault(1); // DWG
     page->addChild(*ics);
