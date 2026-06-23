@@ -20,7 +20,22 @@ using namespace metal;
 
 #define PI      3.141592653589f
 #define EPSILON 1e-10f
+#define OKLAB_NEUTRAL_EPSILON 2e-4f
 #define EQ_NODES 10
+
+float mtl_wrap_unit(float value) {
+    value = fmod(value, 1.f);
+    return value < 0.f ? value + 1.f : value;
+}
+
+float mtl_circular_delta(float from, float to) {
+    return fmod(to-from+1.5f, 1.f)-0.5f;
+}
+
+float mtl_smoothstep(float edge0, float edge1, float value) {
+    float t=clamp((value-edge0)/(edge1-edge0),0.f,1.f);
+    return t*t*(3.f-2.f*t);
+}
 
 // ─── Color Matrices ──────────────────────────────────────────────────────
 
@@ -68,6 +83,20 @@ float3 mtl_xyz_to_rgb(float3 xyz, int cs) {
     return float3(r, g, b);
 }
 
+float3 mtl_adapt_xyz_d60_to_d65(float3 xyz) {
+    return float3(
+        xyz.x* 0.987224008703f + xyz.y*-0.006113228607f + xyz.z* 0.015953288336f,
+        xyz.x*-0.007598371812f + xyz.y* 1.001861484740f + xyz.z* 0.005330035791f,
+        xyz.x* 0.003072577059f + xyz.y*-0.005095961511f + xyz.z* 1.081680603066f);
+}
+
+float3 mtl_adapt_xyz_d65_to_d60(float3 xyz) {
+    return float3(
+        xyz.x* 1.013034914650f + xyz.y* 0.006105257823f + xyz.z*-0.014970943627f,
+        xyz.x* 0.007698230125f + xyz.y* 0.998163352118f + xyz.z*-0.005032038535f,
+        xyz.x*-0.002841317432f + xyz.y* 0.004685156723f + xyz.z* 0.924506137458f);
+}
+
 float mtl_decode_transfer(float v, int cs) {
     if (cs==0) return v<=0.155251141553f ? (v-0.072905534196f)/10.540237741655f : exp2(v*17.52f-9.72f);
     if (cs==1) return v<=0.02740668f ? v/10.44426855f : exp2(v/0.07329248f-7.f)-0.0075f;
@@ -90,38 +119,6 @@ float3 mtl_decode_transfer3(float3 rgb, int cs) {
 
 float3 mtl_encode_transfer3(float3 rgb, int cs) {
     return float3(mtl_encode_transfer(rgb.x,cs), mtl_encode_transfer(rgb.y,cs), mtl_encode_transfer(rgb.z,cs));
-}
-
-float mtl_log_black(int cs) {
-    if (cs==0) return 0.0729055341958355f;
-    if (cs==1) return 0.f;
-    if (cs==2) return 0.092809f;
-    if (cs==3) return 0.092864125122f;
-    return 0.f;
-}
-
-float mtl_log_range(int cs) {
-    if (cs==0) return 0.481888986352110f;
-    if (cs==1) return 0.513837441116225f;
-    if (cs==2) return 0.477822558120417f;
-    if (cs==3) return 0.334655239713281f;
-    return 1.f;
-}
-
-float mtl_normalize_log(float v, int cs) {
-    return (v-mtl_log_black(cs))/mtl_log_range(cs);
-}
-
-float mtl_denormalize_log(float v, int cs) {
-    return v*mtl_log_range(cs)+mtl_log_black(cs);
-}
-
-float3 mtl_normalize_log3(float3 rgb, int cs) {
-    return float3(mtl_normalize_log(rgb.x,cs),mtl_normalize_log(rgb.y,cs),mtl_normalize_log(rgb.z,cs));
-}
-
-float3 mtl_denormalize_log3(float3 rgb, int cs) {
-    return float3(mtl_denormalize_log(rgb.x,cs),mtl_denormalize_log(rgb.y,cs),mtl_denormalize_log(rgb.z,cs));
 }
 
 // ─── Oklab ────────────────────────────────────────────────────────────────
@@ -155,6 +152,16 @@ float3 mtl_XYZ_to_Oklab(float3 xyz) {
     float ly = lms.y<0.f ? -pow(-lms.y, 1.f/3.f) : pow(lms.y, 1.f/3.f);
     float lz = lms.z<0.f ? -pow(-lms.z, 1.f/3.f) : pow(lms.z, 1.f/3.f);
     return mtl_mv33(mtl_LMS_to_Oklab, float3(lx, ly, lz));
+}
+
+float3 mtl_neutralize_small_oklab_chroma(float3 lab) {
+    float chroma = length(lab.yz);
+    float threshold = OKLAB_NEUTRAL_EPSILON * max(1.f, abs(lab.x));
+    if (chroma <= threshold) {
+        lab.y = 0.f;
+        lab.z = 0.f;
+    }
+    return lab;
 }
 
 float3 mtl_Oklab_to_XYZ(float3 lab) {
@@ -198,24 +205,50 @@ float3 mtl_Spherical_to_RGB(float3 c) {
                   -u*is6-v*is2+w*is3);
 }
 
+float mtl_rgb_opponent_hue(float3 rgb, float fallback_hue) {
+    float u=(2.f*rgb.x-rgb.y-rgb.z)/sqrt(6.f);
+    float v=(rgb.y-rgb.z)/sqrt(2.f);
+    if (length(float2(u,v))<1e-7f) return fallback_hue;
+    return mtl_wrap_unit(atan2(v,u)/(2.f*PI));
+}
+
+float mtl_stable_blue_selector_hue(float3 rgb, float model_hue, int input_cs) {
+    if (input_cs==0) return model_hue;
+
+    float opponent_hue=mtl_rgb_opponent_hue(rgb,model_hue);
+    const float blue_opponent_hue=2.f/3.f;
+    const float blue_eq_center=257.f/360.f;
+    const float mask_inner=25.f/360.f;
+    const float mask_outer=75.f/360.f;
+    float distance=abs(mtl_circular_delta(blue_opponent_hue,opponent_hue));
+    float mask=1.f-mtl_smoothstep(mask_inner,mask_outer,distance);
+    float stable_hue=
+        mtl_wrap_unit(opponent_hue+blue_eq_center-blue_opponent_hue);
+    return mtl_wrap_unit(
+        model_hue+mtl_circular_delta(model_hue,stable_hue)*mask);
+}
+
 // ─── convert ──────────────────────────────────────────────────────────────
 
 float3 mtl_convert(float3 rgb, int st, bool dir, int cs) {
     if (dir) {
         if (st >= 11) {
-            return mtl_OKLAB_to_OKLCH(mtl_XYZ_to_Oklab(mtl_rgb_to_xyz(rgb, cs)));
+            float3 xyz = mtl_rgb_to_xyz(rgb, cs);
+            if (cs == 0) xyz = mtl_adapt_xyz_d60_to_d65(xyz);
+            return mtl_OKLAB_to_OKLCH(
+                mtl_neutralize_small_oklab_chroma(mtl_XYZ_to_Oklab(xyz)));
         }
         if (st == 8) return mtl_RGB_to_Spherical(rgb);
-        float3 log_rgb = mtl_normalize_log3(rgb, cs);
-        return log_rgb;
+        return rgb;
     }
 
     if (st >= 11) {
-        return mtl_xyz_to_rgb(mtl_Oklab_to_XYZ(mtl_OKLCH_to_OKLAB(rgb)), cs);
+        float3 xyz = mtl_Oklab_to_XYZ(mtl_OKLCH_to_OKLAB(rgb));
+        if (cs == 0) xyz = mtl_adapt_xyz_d65_to_d60(xyz);
+        return mtl_xyz_to_rgb(xyz, cs);
     }
     if (st == 8) return mtl_Spherical_to_RGB(rgb);
-    float3 log_rgb = rgb;
-    return mtl_denormalize_log3(log_rgb, cs);
+    return rgb;
 }
 
 // ─── LUT Sampler (Bilinear 1D) ────────────────────────────────────────────
@@ -294,12 +327,23 @@ kernel void ColorEqualizerKernel(
     // ── Single forward conversion ─────────────────────────────────────────
     float3 cs = mtl_convert(rgb, p_spaceType, true, p_inputCS);
     float hue_normalized = cs.x;
+    if (p_spaceType>=11) {
+        hue_normalized=
+            mtl_stable_blue_selector_hue(rgb,hue_normalized,p_inputCS);
+    }
 
     // Sample baked EQ adjustments
     float3 eq = mtl_sample_lut_1d(p_Lut, 256, hue_normalized);
     float h_delta = eq.x;
     float s_gain = eq.y;
     float l_delta = eq.z;
+
+    if (p_spaceType>=11 && cs.y==0.f) {
+        if (p_OutputPremultiplied != 0) rgb *= alpha;
+        p_Output[dstIndex+0]=rgb.x; p_Output[dstIndex+1]=rgb.y;
+        p_Output[dstIndex+2]=rgb.z; p_Output[dstIndex+3]=alpha;
+        return;
+    }
 
     if (abs(h_delta)<1e-6f && abs(s_gain-1.f)<1e-6f && abs(l_delta)<1e-6f) {
         if (p_OutputPremultiplied != 0) rgb *= alpha;

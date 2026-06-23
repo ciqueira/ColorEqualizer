@@ -63,9 +63,9 @@ The plugin supports:
 - ARRI Wide Gamut 3 / LogC3 EI800
 - ARRI Wide Gamut 4 / LogC4
 
-RGB Spherical normalizes the selected log signal internally so that its
-geometry reacts consistently across supported pipelines. OKLCH preserves the
-encoded-signal response of the original equalizer.
+RGB Spherical works directly on the selected encoded signal. OKLCH preserves
+the encoded-signal response of the original equalizer and chromatically adapts
+ACES AP1 between D60 and the D65 domain expected by Oklab.
 
 ## GPU processing
 

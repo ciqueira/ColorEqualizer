@@ -18,6 +18,7 @@ namespace colormath {
 // ─── Constants ────────────────────────────────────────────────────────────
 static constexpr float PI      = 3.141592653589f;
 static constexpr float EPSILON = 1e-10f;
+static constexpr float OKLAB_NEUTRAL_EPSILON = 2e-4f;
 static constexpr int   EQ_NODES = 10;
 
 // ─── float3 type ──────────────────────────────────────────────────────────
@@ -39,6 +40,20 @@ inline float3& operator*=(float3& a, float s)  { a.x*=s; a.y*=s; a.z*=s; return 
 inline float dot(float3 a, float3 b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
 inline float clampf(float x, float lo, float hi) { return fminf(fmaxf(x, lo), hi); }
 inline float max3(float a, float b, float c) { return fmaxf(a, fmaxf(b, c)); }
+
+inline float wrap_unit(float value) {
+    value = fmodf(value, 1.0f);
+    return value < 0.0f ? value + 1.0f : value;
+}
+
+inline float circular_delta(float from, float to) {
+    return fmodf(to - from + 1.5f, 1.0f) - 0.5f;
+}
+
+inline float smoothstepf(float edge0, float edge1, float value) {
+    const float t = clampf((value - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
 
 // ─── Color matrices ───────────────────────────────────────────────────────
 
@@ -86,6 +101,29 @@ inline float3 xyz_to_rgb(float3 xyz, int output_cs) {
         b = xyz.x *  0.00000000f + xyz.y *  0.00000000f + xyz.z *  0.91822495f;
     }
     return make_float3(r, g, b);
+}
+
+// Bradford chromatic adaptation between the ACES white point (D60) and the
+// D65-relative XYZ domain expected by Oklab. The other supported RGB spaces
+// already use D65 and must not pass through these matrices.
+inline float3 adapt_xyz_d60_to_d65(float3 xyz) {
+    return make_float3(
+        xyz.x *  0.987224008703f + xyz.y * -0.006113228607f +
+            xyz.z *  0.015953288336f,
+        xyz.x * -0.007598371812f + xyz.y *  1.001861484740f +
+            xyz.z *  0.005330035791f,
+        xyz.x *  0.003072577059f + xyz.y * -0.005095961511f +
+            xyz.z *  1.081680603066f);
+}
+
+inline float3 adapt_xyz_d65_to_d60(float3 xyz) {
+    return make_float3(
+        xyz.x *  1.013034914650f + xyz.y *  0.006105257823f +
+            xyz.z * -0.014970943627f,
+        xyz.x *  0.007698230125f + xyz.y *  0.998163352118f +
+            xyz.z * -0.005032038535f,
+        xyz.x * -0.002841317432f + xyz.y *  0.004685156723f +
+            xyz.z *  0.924506137458f);
 }
 
 // ─── Scene-linear transfer functions ─────────────────────────────────────
@@ -179,48 +217,6 @@ inline float3 encode_input_transfer(float3 rgb, int input_cs) {
                        encode_input_transfer(rgb.z, input_cs));
 }
 
-// ─── Normalized log signal ───────────────────────────────────────────────
-// RGB Spherical operates on a normalized version of the selected encoded
-// signal. Remove only the transfer curve's code-value offset and scale so that
-// scene-linear black maps to 0 and scene-linear white maps to 1. The curve
-// shape remains intact and the mapping is reversible.
-
-inline float log_signal_black(int input_cs) {
-    if (input_cs == 0) return 0.0729055341958355f; // ACEScct
-    if (input_cs == 1) return 0.0f;                // DaVinci Intermediate
-    if (input_cs == 2) return 0.092809f;           // LogC3 EI800
-    if (input_cs == 3) return 0.092864125122f;     // LogC4
-    return 0.0f;
-}
-
-inline float log_signal_range(int input_cs) {
-    if (input_cs == 0) return 0.481888986352110f;
-    if (input_cs == 1) return 0.513837441116225f;
-    if (input_cs == 2) return 0.477822558120417f;
-    if (input_cs == 3) return 0.334655239713281f;
-    return 1.0f;
-}
-
-inline float normalize_log_signal(float value, int input_cs) {
-    return (value - log_signal_black(input_cs)) / log_signal_range(input_cs);
-}
-
-inline float denormalize_log_signal(float value, int input_cs) {
-    return value * log_signal_range(input_cs) + log_signal_black(input_cs);
-}
-
-inline float3 normalize_log_signal(float3 rgb, int input_cs) {
-    return make_float3(normalize_log_signal(rgb.x, input_cs),
-                       normalize_log_signal(rgb.y, input_cs),
-                       normalize_log_signal(rgb.z, input_cs));
-}
-
-inline float3 denormalize_log_signal(float3 rgb, int input_cs) {
-    return make_float3(denormalize_log_signal(rgb.x, input_cs),
-                       denormalize_log_signal(rgb.y, input_cs),
-                       denormalize_log_signal(rgb.z, input_cs));
-}
-
 // ─── Matrix multiply 3x3 × float3 (for Oklab) ────────────────────────────
 
 inline float3 mv33(const float* mat, float3 v) {
@@ -261,6 +257,17 @@ inline float3 XYZ_to_Oklab(float3 xyz) {
     float ly = lms.y < 0.0f ? -powf(-lms.y, 1.0f/3.0f) : powf(lms.y, 1.0f/3.0f);
     float lz = lms.z < 0.0f ? -powf(-lms.z, 1.0f/3.0f) : powf(lms.z, 1.0f/3.0f);
     return mv33(LMS_to_Oklab_mat, make_float3(lx, ly, lz));
+}
+
+inline float3 neutralize_small_oklab_chroma(float3 oklab) {
+    const float chroma = hypotf(oklab.y, oklab.z);
+    const float threshold =
+        OKLAB_NEUTRAL_EPSILON * fmaxf(1.0f, fabsf(oklab.x));
+    if (chroma <= threshold) {
+        oklab.y = 0.0f;
+        oklab.z = 0.0f;
+    }
+    return oklab;
 }
 
 inline float3 Oklab_to_XYZ(float3 oklab) {
@@ -334,29 +341,64 @@ inline float3 Spherical_to_RGB(float3 spherical) {
     return make_float3(r, g, b);
 }
 
+// ─── Stable blue-band selector ─────────────────────────────────────────────
+// Camera-wide gamuts can place saturated blue near signed-LMS zero crossings,
+// where OKLCH hue changes rapidly. Keep OKLCH for the actual H/C/L adjustment,
+// but use a smooth RGB-opponent hue only to select the equalizer band in the
+// cyan-blue-magenta region. ACES keeps its existing OKLCH selector unchanged.
+
+inline float rgb_opponent_hue(float3 rgb, float fallback_hue) {
+    const float u = (2.0f * rgb.x - rgb.y - rgb.z) / sqrtf(6.0f);
+    const float v = (rgb.y - rgb.z) / sqrtf(2.0f);
+    if (hypotf(u, v) < 1e-7f) return fallback_hue;
+
+    float hue = atan2f(v, u) / (2.0f * PI);
+    return wrap_unit(hue);
+}
+
+inline float stable_blue_selector_hue(float3 rgb, float model_hue,
+                                      int input_cs) {
+    if (input_cs == 0) return model_hue;
+
+    const float opponent_hue = rgb_opponent_hue(rgb, model_hue);
+    constexpr float BLUE_OPPONENT_HUE = 2.0f / 3.0f;
+    constexpr float BLUE_EQ_CENTER = 257.0f / 360.0f;
+    constexpr float MASK_INNER = 25.0f / 360.0f;
+    constexpr float MASK_OUTER = 75.0f / 360.0f;
+
+    const float distance =
+        fabsf(circular_delta(BLUE_OPPONENT_HUE, opponent_hue));
+    const float mask =
+        1.0f - smoothstepf(MASK_INNER, MASK_OUTER, distance);
+    const float stable_hue =
+        wrap_unit(opponent_hue + (BLUE_EQ_CENTER - BLUE_OPPONENT_HUE));
+    return wrap_unit(model_hue + circular_delta(model_hue, stable_hue) * mask);
+}
+
 // ─── Unified color-space conversion ───────────────────────────────────────
 
 inline float3 convert_colorSpace_model(float3 rgb, int space_type, bool direction, int input_cs) {
     if (direction) {
         if (space_type >= 11) {
             // Preserve the legacy OKLCH behavior: apply the gamut matrix
-            // directly to the host's selected encoded signal.
+            // directly to the host's selected encoded signal. AP1 is D60, so
+            // adapt its XYZ values to the D65 domain expected by Oklab.
             float3 xyz   = rgb_to_xyz(rgb, input_cs);
-            float3 oklab = XYZ_to_Oklab(xyz);
+            if (input_cs == 0) xyz = adapt_xyz_d60_to_d65(xyz);
+            float3 oklab = neutralize_small_oklab_chroma(XYZ_to_Oklab(xyz));
             return OKLAB_to_OKLCH(oklab);
         }
         if (space_type == 8) return RGB_to_Spherical(rgb);
-        const float3 log_rgb = normalize_log_signal(rgb, input_cs);
-        return log_rgb;
+        return rgb;
     } else {
         if (space_type >= 11) {
             float3 oklab = OKLCH_to_OKLAB(rgb);
             float3 xyz   = Oklab_to_XYZ(oklab);
+            if (input_cs == 0) xyz = adapt_xyz_d65_to_d60(xyz);
             return xyz_to_rgb(xyz, input_cs);
         }
         if (space_type == 8) return Spherical_to_RGB(rgb);
-        float3 log_rgb = rgb;
-        return denormalize_log_signal(log_rgb, input_cs);
+        return rgb;
     }
 }
 
@@ -485,12 +527,23 @@ inline float3 apply_equalizers_parallel(float3 rgb, int space_type, int input_cs
     // ── Single forward conversion ─────────────────────────────────────────
     float3 cs = convert_colorSpace_model(rgb, space_type, true, input_cs);
     float hue_normalized = cs.x;
+    if (space_type >= 11) {
+        hue_normalized =
+            stable_blue_selector_hue(rgb, hue_normalized, input_cs);
+    }
     
     // Sample baked EQ adjustments
     float3 eq = sample_lut_1d(lut, lut_size, hue_normalized);
     float h_delta = eq.x;
     float s_gain = eq.y;
     float l_delta = eq.z;
+
+    // Hue, saturation and chroma-weighted brightness cannot affect an exact
+    // OKLCH neutral. Avoid an unnecessary matrix round trip and preserve the
+    // original encoded RGB bit-for-bit.
+    if (space_type >= 11 && cs.y == 0.0f) {
+        return rgb;
+    }
 
     if (fabsf(h_delta) < 1e-6f &&
         fabsf(s_gain - 1.0f) < 1e-6f &&

@@ -12,6 +12,7 @@
 // ─── Constants ────────────────────────────────────────────────────────────
 #define PI 3.141592653589f
 #define EPSILON 1e-10f
+#define OKLAB_NEUTRAL_EPSILON 2e-4f
 #define EQ_NODES 10
 
 // ─── float3 helpers (CUDA float3 has no operator overloads) ───────────────
@@ -39,6 +40,17 @@ __device__ inline float clampf(float x, float lo, float hi) {
 }
 __device__ inline float max3f(float a, float b, float c) {
   return fmaxf(a, fmaxf(b, c));
+}
+__device__ inline float cu_wrap_unit(float value) {
+  value = fmodf(value, 1.f);
+  return value < 0.f ? value + 1.f : value;
+}
+__device__ inline float cu_circular_delta(float from, float to) {
+  return fmodf(to - from + 1.5f, 1.f) - 0.5f;
+}
+__device__ inline float cu_smoothstep(float edge0, float edge1, float value) {
+  float t = clampf((value - edge0) / (edge1 - edge0), 0.f, 1.f);
+  return t * t * (3.f - 2.f * t);
 }
 
 // ─── Color Matrices ──────────────────────────────────────────────────────
@@ -85,6 +97,26 @@ __device__ float3 cu_xyz_to_rgb(float3 xyz, int cs) {
     b = xyz.x * 0.00000000f + xyz.y * 0.00000000f + xyz.z * 0.91822495f;
   }
   return f3_make(r, g, b);
+}
+
+__device__ float3 cu_adapt_xyz_d60_to_d65(float3 xyz) {
+  return f3_make(
+      xyz.x * 0.987224008703f + xyz.y * -0.006113228607f +
+          xyz.z * 0.015953288336f,
+      xyz.x * -0.007598371812f + xyz.y * 1.001861484740f +
+          xyz.z * 0.005330035791f,
+      xyz.x * 0.003072577059f + xyz.y * -0.005095961511f +
+          xyz.z * 1.081680603066f);
+}
+
+__device__ float3 cu_adapt_xyz_d65_to_d60(float3 xyz) {
+  return f3_make(
+      xyz.x * 1.013034914650f + xyz.y * 0.006105257823f +
+          xyz.z * -0.014970943627f,
+      xyz.x * 0.007698230125f + xyz.y * 0.998163352118f +
+          xyz.z * -0.005032038535f,
+      xyz.x * -0.002841317432f + xyz.y * 0.004685156723f +
+          xyz.z * 0.924506137458f);
 }
 
 __device__ float cu_decode_transfer(float v, int cs) {
@@ -138,40 +170,6 @@ __device__ float3 cu_encode_transfer(float3 rgb, int cs) {
                  cu_encode_transfer(rgb.z, cs));
 }
 
-__device__ float cu_log_black(int cs) {
-  if (cs == 0) return 0.0729055341958355f;
-  if (cs == 1) return 0.f;
-  if (cs == 2) return 0.092809f;
-  if (cs == 3) return 0.092864125122f;
-  return 0.f;
-}
-
-__device__ float cu_log_range(int cs) {
-  if (cs == 0) return 0.481888986352110f;
-  if (cs == 1) return 0.513837441116225f;
-  if (cs == 2) return 0.477822558120417f;
-  if (cs == 3) return 0.334655239713281f;
-  return 1.f;
-}
-
-__device__ float cu_normalize_log(float v, int cs) {
-  return (v - cu_log_black(cs)) / cu_log_range(cs);
-}
-
-__device__ float cu_denormalize_log(float v, int cs) {
-  return v * cu_log_range(cs) + cu_log_black(cs);
-}
-
-__device__ float3 cu_normalize_log(float3 rgb, int cs) {
-  return f3_make(cu_normalize_log(rgb.x, cs), cu_normalize_log(rgb.y, cs),
-                 cu_normalize_log(rgb.z, cs));
-}
-
-__device__ float3 cu_denormalize_log(float3 rgb, int cs) {
-  return f3_make(cu_denormalize_log(rgb.x, cs), cu_denormalize_log(rgb.y, cs),
-                 cu_denormalize_log(rgb.z, cs));
-}
-
 // ─── Oklab ────────────────────────────────────────────────────────────────
 
 __device__ float3 cu_mv33(const float *m, float3 v) {
@@ -200,6 +198,16 @@ __device__ float3 cu_XYZ_to_Oklab(float3 xyz) {
   float ly = lms.y < 0.f ? -powf(-lms.y, 1.f / 3.f) : powf(lms.y, 1.f / 3.f);
   float lz = lms.z < 0.f ? -powf(-lms.z, 1.f / 3.f) : powf(lms.z, 1.f / 3.f);
   return cu_mv33(cu_LMS_to_Oklab, f3_make(lx, ly, lz));
+}
+
+__device__ float3 cu_neutralize_small_oklab_chroma(float3 lab) {
+  float chroma = hypotf(lab.y, lab.z);
+  float threshold = OKLAB_NEUTRAL_EPSILON * fmaxf(1.f, fabsf(lab.x));
+  if (chroma <= threshold) {
+    lab.y = 0.f;
+    lab.z = 0.f;
+  }
+  return lab;
 }
 
 __device__ float3 cu_Oklab_to_XYZ(float3 lab) {
@@ -252,24 +260,52 @@ __device__ float3 cu_Spherical_to_RGB(float3 c) {
                  -u * is6 - v * is2 + w * is3);
 }
 
+__device__ float cu_rgb_opponent_hue(float3 rgb, float fallback_hue) {
+  float u = (2.f * rgb.x - rgb.y - rgb.z) / sqrtf(6.f);
+  float v = (rgb.y - rgb.z) / sqrtf(2.f);
+  if (hypotf(u, v) < 1e-7f) return fallback_hue;
+  return cu_wrap_unit(atan2f(v, u) / (2.f * PI));
+}
+
+__device__ float cu_stable_blue_selector_hue(float3 rgb, float model_hue,
+                                             int input_cs) {
+  if (input_cs == 0) return model_hue;
+
+  float opponent_hue = cu_rgb_opponent_hue(rgb, model_hue);
+  const float blue_opponent_hue = 2.f / 3.f;
+  const float blue_eq_center = 257.f / 360.f;
+  const float mask_inner = 25.f / 360.f;
+  const float mask_outer = 75.f / 360.f;
+  float distance =
+      fabsf(cu_circular_delta(blue_opponent_hue, opponent_hue));
+  float mask = 1.f - cu_smoothstep(mask_inner, mask_outer, distance);
+  float stable_hue =
+      cu_wrap_unit(opponent_hue + blue_eq_center - blue_opponent_hue);
+  return cu_wrap_unit(
+      model_hue + cu_circular_delta(model_hue, stable_hue) * mask);
+}
+
 // ─── convert_colorSpace_model ─────────────────────────────────────────────
 
 __device__ float3 cu_convert(float3 rgb, int st, bool dir, int cs) {
   if (dir) {
     if (st >= 11) {
-      return cu_OKLAB_to_OKLCH(cu_XYZ_to_Oklab(cu_rgb_to_xyz(rgb, cs)));
+      float3 xyz = cu_rgb_to_xyz(rgb, cs);
+      if (cs == 0) xyz = cu_adapt_xyz_d60_to_d65(xyz);
+      return cu_OKLAB_to_OKLCH(
+          cu_neutralize_small_oklab_chroma(cu_XYZ_to_Oklab(xyz)));
     }
     if (st == 8) return cu_RGB_to_Spherical(rgb);
-    float3 log_rgb = cu_normalize_log(rgb, cs);
-    return log_rgb;
+    return rgb;
   }
 
   if (st >= 11) {
-    return cu_xyz_to_rgb(cu_Oklab_to_XYZ(cu_OKLCH_to_OKLAB(rgb)), cs);
+    float3 xyz = cu_Oklab_to_XYZ(cu_OKLCH_to_OKLAB(rgb));
+    if (cs == 0) xyz = cu_adapt_xyz_d65_to_d60(xyz);
+    return cu_xyz_to_rgb(xyz, cs);
   }
   if (st == 8) return cu_Spherical_to_RGB(rgb);
-  float3 log_rgb = rgb;
-  return cu_denormalize_log(log_rgb, cs);
+  return rgb;
 }
 
 // ─── LUT Sampler (Bilinear 1D) ────────────────────────────────────────────
@@ -344,12 +380,29 @@ __global__ void ColorEqualizerKernel(
   // ── Single forward conversion ─────────────────────────────────────────
   float3 cs = cu_convert(rgb, spaceType, true, inputCS);
   float hue_normalized = cs.x;
+  if (spaceType >= 11) {
+    hue_normalized =
+        cu_stable_blue_selector_hue(rgb, hue_normalized, inputCS);
+  }
 
   // Sample baked EQ adjustments
   float3 eq = cu_sample_lut_1d(p_Lut, 256, hue_normalized);
   float h_delta = eq.x;
   float s_gain = eq.y;
   float l_delta = eq.z;
+
+  if (spaceType >= 11 && cs.y == 0.f) {
+    if (p_OutputPremultiplied != 0) {
+      rgb.x *= alpha;
+      rgb.y *= alpha;
+      rgb.z *= alpha;
+    }
+    p_Output[dstIdx + 0] = rgb.x;
+    p_Output[dstIdx + 1] = rgb.y;
+    p_Output[dstIdx + 2] = rgb.z;
+    p_Output[dstIdx + 3] = alpha;
+    return;
+  }
 
   if (fabsf(h_delta) < 1e-6f && fabsf(s_gain - 1.f) < 1e-6f &&
       fabsf(l_delta) < 1e-6f) {
