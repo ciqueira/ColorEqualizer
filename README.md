@@ -14,8 +14,8 @@ Red · Orange · Yellow · Lime · Green
 Teal · Cyan · Blue · Purple · Magenta
 ```
 
-The goal is simple: make selective color adjustments feel continuous and
-musical, without turning a gradient into a collection of isolated corrections.
+The goal is simple: make selective color adjustments feel continuous,
+without turning a gradient into a collection of isolated corrections.
 
 ## Shape color, not masks
 
@@ -25,10 +25,9 @@ Each color region offers independent control over:
 - **Saturation** — strengthen or soften color intensity.
 - **Brightness** — reshape the presence of a color without a separate key.
 
-The ten controls are connected through periodic interpolation, so neighboring
-bands blend around the complete hue circle. Adjustments remain responsive
-without creating hard boundaries between red and magenta or between any other
-adjacent colors.
+Color controls use periodic trigonometric interpolation across 10 bands distributed 
+around the hue circle, ensuring smooth transitions between neighboring colors and 
+perfect continuity between magenta and red.
 
 ## Two different views of color
 
@@ -60,7 +59,7 @@ The plugin supports:
 
 - ACES AP1 / ACEScct
 - DaVinci Wide Gamut / Intermediate
-- ARRI Wide Gamut 3 / LogC3 EI800
+- ARRI Wide Gamut 3 / LogC3
 - ARRI Wide Gamut 4 / LogC4
 
 RGB Spherical works directly on the selected encoded signal. OKLCH preserves
