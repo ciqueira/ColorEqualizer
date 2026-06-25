@@ -16,6 +16,7 @@
 #include "ColorMath.h"
 #include "EQParams.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -117,6 +118,46 @@ static void openMCNexusApp() {
   std::system(
       "open -a MCNexus >/dev/null 2>&1 || open \"/Applications/MCNexus.app\" "
       ">/dev/null 2>&1");
+#elif defined(_WIN32)
+  auto shellExecuteWindowsPath = [](const wchar_t *path,
+                                    const wchar_t *parameters) {
+    HINSTANCE result =
+        ShellExecuteW(nullptr, L"open", path, parameters, nullptr, SW_SHOWNORMAL);
+    return reinterpret_cast<intptr_t>(result) > 32;
+  };
+
+  auto launchWindowsExecutableIfExists = [&](const wchar_t *pathWithEnvironment) {
+    wchar_t expanded[MAX_PATH] = {};
+    const DWORD expandedLength =
+        ExpandEnvironmentStringsW(pathWithEnvironment, expanded, MAX_PATH);
+    const wchar_t *path =
+        (expandedLength > 0 && expandedLength < MAX_PATH) ? expanded
+                                                          : pathWithEnvironment;
+    const DWORD attributes = GetFileAttributesW(path);
+    if (attributes == INVALID_FILE_ATTRIBUTES ||
+        (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0u) {
+      return false;
+    }
+    return shellExecuteWindowsPath(path, nullptr);
+  };
+
+  if (launchWindowsExecutableIfExists(L"%ProgramFiles%\\MCNexus\\MCNexus.exe") ||
+      launchWindowsExecutableIfExists(
+          L"%ProgramFiles(x86)%\\MCNexus\\MCNexus.exe") ||
+      launchWindowsExecutableIfExists(
+          L"%LocalAppData%\\Programs\\MCNexus\\MCNexus.exe")) {
+    return;
+  }
+
+  constexpr const wchar_t *kPowerShellArgs =
+      LR"PS(-NoProfile -WindowStyle Hidden -Command "$app = Get-StartApps | Where-Object { $_.Name -eq 'MCNexus' } | Select-Object -First 1; if ($app) { Start-Process ('shell:AppsFolder\' + $app.AppID) } else { Start-Process 'https://apps.microsoft.com/detail/9n1qqt1xc825?hl=en-US&gl=US' }")PS";
+  if (shellExecuteWindowsPath(L"powershell.exe", kPowerShellArgs)) {
+    return;
+  }
+
+  openExternalUrl("https://apps.microsoft.com/detail/9n1qqt1xc825?hl=en-US&gl=US");
+#else
+  openExternalUrl("https://github.com/ciqueira/MCNexus");
 #endif
 }
 
@@ -607,7 +648,7 @@ void MCColorEqualizerFactory::describeInContext(
     OFX::PushButtonParamDescriptor *appMCNexus =
         p_Desc.definePushButtonParam(kParamAppMCNexus);
     appMCNexus->setLabels("App MCNexus", "App MCNexus", "App MCNexus");
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
     appMCNexus->setEnabled(false);
 #endif
     appMCNexus->setParent(*grp);

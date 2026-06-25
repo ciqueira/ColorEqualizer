@@ -25,9 +25,9 @@ Each color region offers independent control over:
 - **Saturation** — strengthen or soften color intensity.
 - **Brightness** — reshape the presence of a color without a separate key.
 
-Color controls use periodic trigonometric interpolation across 10 bands distributed 
-around the hue circle, ensuring smooth transitions between neighboring colors and 
-perfect continuity between magenta and red.
+Color controls use an independent periodic Fourier-series implementation across
+10 bands distributed around the hue circle. This provides smooth transitions
+between neighboring colors and perfect continuity between magenta and red.
 
 ## Two different views of color
 

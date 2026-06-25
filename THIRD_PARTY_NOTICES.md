@@ -64,3 +64,9 @@ software dependencies:
 RGB Spherical, periodic interpolation, LUT construction, safety logic, and OFX
 integration are project-owned implementations and require no additional
 third-party attribution in this notice.
+
+The 10-band equalizer interpolation is an independent periodic Fourier-series
+implementation. Lagrange/Dirichlet trigonometric interpolation identities and
+Aurélien Pierre's public discussions of hue-periodic interpolation are treated
+as mathematical references only; no third-party interpolation code is
+incorporated.
