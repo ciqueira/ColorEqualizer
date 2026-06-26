@@ -205,7 +205,7 @@ public:
 
   // ── GPU overrides ─────────────────────────────────────────────────────
 
-  virtual void processImagesCUDA() override {
+  virtual void processImagesCuda() override {
 #ifndef __APPLE__
     const OfxRectI &srcBounds = _srcImg->getBounds();
     const OfxRectI &dstBounds = _dstImg->getBounds();
@@ -443,7 +443,7 @@ void MCColorEqualizerPlugin::setupAndProcess(
 #ifdef __APPLE__
   p_Processor.processImagesMetal();
 #else
-  p_Processor.processImagesCUDA();
+  p_Processor.processImagesCuda();
 #endif
 }
 
@@ -473,7 +473,6 @@ void MCColorEqualizerFactory::describe(OFX::ImageEffectDescriptor &p_Desc) {
   p_Desc.setTemporalClipAccess(false);
   p_Desc.setRenderTwiceAlways(false);
   p_Desc.setSupportsMultipleClipPARs(kSupportsMultipleClipPARs);
-  p_Desc.setNoSpatialAwareness(true);
 
 #ifdef __APPLE__
   p_Desc.setSupportsMetalRender(true);

@@ -20,17 +20,18 @@ public-domain grant and retains this notice for provenance.
 
 ## OpenFX
 
-The OpenFX API headers under `src/OpenFX-1.4` and the support library under
-`src/Support` are provided by The Open Effects Association Ltd. under their
-retained BSD-style licenses.
+Color Equalizer is built against the shared OpenFX SDK used by MC OFX. The API
+headers and support library are provided by The Open Effects Association Ltd.
+under their retained BSD-style licenses.
 
 - Project: <https://github.com/AcademySoftwareFoundation/openfx>
-- Support-library license: `src/Support/LICENSE`
+- Version: `OFX_Release_1.5.1`
+- Support-library license: `MCPlugins/third_party/openfx/Support/LICENSE`
 - Individual API headers retain their original notices.
 
 Binary distributions must reproduce the applicable OpenFX copyright,
-conditions, and disclaimer. The build copies `src/Support/LICENSE` into the
-OFX bundle as `OPENFX-BSD-3-CLAUSE.txt`.
+conditions, and disclaimer. The MC OFX build wrapper copies the shared SDK
+support license into the OFX bundle as `OPENFX-BSD-3-CLAUSE.txt`.
 
 ## NVIDIA CUDA Runtime
 
