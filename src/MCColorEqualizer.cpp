@@ -126,6 +126,27 @@ static void openMCNexusApp() {
     return reinterpret_cast<intptr_t>(result) > 32;
   };
 
+  auto launchPowerShellHidden = [](const wchar_t *parameters) {
+    std::wstring commandLine = L"powershell.exe ";
+    commandLine += parameters;
+
+    STARTUPINFOW startupInfo = {};
+    startupInfo.cb = sizeof(startupInfo);
+    startupInfo.dwFlags = STARTF_USESHOWWINDOW;
+    startupInfo.wShowWindow = SW_HIDE;
+
+    PROCESS_INFORMATION processInfo = {};
+    const BOOL created = CreateProcessW(
+        nullptr, &commandLine[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
+        nullptr, nullptr, &startupInfo, &processInfo);
+    if (!created) {
+      return false;
+    }
+    CloseHandle(processInfo.hThread);
+    CloseHandle(processInfo.hProcess);
+    return true;
+  };
+
   auto launchWindowsExecutableIfExists = [&](const wchar_t *pathWithEnvironment) {
     wchar_t expanded[MAX_PATH] = {};
     const DWORD expandedLength =
@@ -151,7 +172,7 @@ static void openMCNexusApp() {
 
   constexpr const wchar_t *kPowerShellArgs =
       LR"PS(-NoProfile -WindowStyle Hidden -Command "$app = Get-StartApps | Where-Object { $_.Name -eq 'MCNexus' } | Select-Object -First 1; if ($app) { Start-Process ('shell:AppsFolder\' + $app.AppID) } else { Start-Process 'https://apps.microsoft.com/detail/9n1qqt1xc825?hl=en-US&gl=US' }")PS";
-  if (shellExecuteWindowsPath(L"powershell.exe", kPowerShellArgs)) {
+  if (launchPowerShellHidden(kPowerShellArgs)) {
     return;
   }
 
