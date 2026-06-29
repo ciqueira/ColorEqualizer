@@ -275,6 +275,52 @@ float3 mtl_sample_lut_1d(const device float* lut, int num_points, float normaliz
     );
 }
 
+// ─── RGB Direct equalizer ─────────────────────────────────────────────────
+
+float mtl_rgb_direct_sat_value(float3 rgb) {
+    float neutral = (rgb.x + rgb.y + rgb.z) / 3.0f;
+    float3 chroma = rgb - float3(neutral);
+    float chroma_mag = length(chroma);
+    return clamp(chroma_mag / (abs(neutral) + chroma_mag + 1.0e-6f),
+                 0.0f, 1.0f);
+}
+
+float3 mtl_apply_rgb_direct_equalizer(float3 rgb, const device float* lut,
+                                      int lut_size) {
+    float hue_normalized = mtl_rgb_opponent_hue(rgb, 0.0f);
+    float3 eq = mtl_sample_lut_1d(lut, lut_size, hue_normalized);
+    float h_delta = eq.x;
+    float s_gain = eq.y;
+    float l_delta = eq.z;
+
+    if (abs(h_delta) < 1e-6f &&
+        abs(s_gain - 1.0f) < 1e-6f &&
+        abs(l_delta) < 1e-6f) {
+        return rgb;
+    }
+
+    float neutral = (rgb.x + rgb.y + rgb.z) / 3.0f;
+    float u = (2.0f * rgb.x - rgb.y - rgb.z) / sqrt(6.0f);
+    float v = (rgb.y - rgb.z) / sqrt(2.0f);
+
+    float angle = h_delta * 2.0f * PI;
+    float ct = cos(angle);
+    float st = sin(angle);
+    float rotated_u = u * ct - v * st;
+    float rotated_v = u * st + v * ct;
+    u = rotated_u * max(0.0f, s_gain);
+    v = rotated_v * max(0.0f, s_gain);
+
+    float3 out = float3(
+        neutral + 2.0f * u / sqrt(6.0f),
+        neutral - u / sqrt(6.0f) + v / sqrt(2.0f),
+        neutral - u / sqrt(6.0f) - v / sqrt(2.0f));
+
+    float weight = mtl_rgb_direct_sat_value(out);
+    float brightness_gain = max(0.0f, 1.0f + l_delta * weight);
+    return out * brightness_gain;
+}
+
 // ─── Main Kernel — Parallel Pipeline (1 roundtrip) ────────────────────────
 
 kernel void ColorEqualizerKernel(
@@ -322,6 +368,16 @@ kernel void ColorEqualizerKernel(
             return;
         }
         rgb /= alpha;
+    }
+
+    if (p_spaceType == -1) {
+        rgb = mtl_apply_rgb_direct_equalizer(rgb, p_Lut, 256);
+        if (p_OutputPremultiplied != 0) rgb *= alpha;
+        p_Output[dstIndex+0] = rgb.x;
+        p_Output[dstIndex+1] = rgb.y;
+        p_Output[dstIndex+2] = rgb.z;
+        p_Output[dstIndex+3] = alpha;
+        return;
     }
 
     // ── Single forward conversion ─────────────────────────────────────────

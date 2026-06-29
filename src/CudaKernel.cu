@@ -337,6 +337,56 @@ __device__ float3 cu_sample_lut_1d(const CudaLut &lut, int num_points,
     );
 }
 
+// ─── RGB Direct equalizer ─────────────────────────────────────────────────
+
+__device__ float cu_rgb_direct_sat_value(float3 rgb) {
+  float neutral = (rgb.x + rgb.y + rgb.z) / 3.0f;
+  float cx = rgb.x - neutral;
+  float cy = rgb.y - neutral;
+  float cz = rgb.z - neutral;
+  float chroma_mag = sqrtf(cx * cx + cy * cy + cz * cz);
+  return clampf(chroma_mag / (fabsf(neutral) + chroma_mag + 1.0e-6f),
+                0.0f, 1.0f);
+}
+
+__device__ float3 cu_apply_rgb_direct_equalizer(float3 rgb,
+                                                const CudaLut &lut,
+                                                int lut_size) {
+  float hue_normalized = cu_rgb_opponent_hue(rgb, 0.0f);
+  float3 eq = cu_sample_lut_1d(lut, lut_size, hue_normalized);
+  float h_delta = eq.x;
+  float s_gain = eq.y;
+  float l_delta = eq.z;
+
+  if (fabsf(h_delta) < 1e-6f &&
+      fabsf(s_gain - 1.0f) < 1e-6f &&
+      fabsf(l_delta) < 1e-6f) {
+    return rgb;
+  }
+
+  float neutral = (rgb.x + rgb.y + rgb.z) / 3.0f;
+  float u = (2.0f * rgb.x - rgb.y - rgb.z) / sqrtf(6.0f);
+  float v = (rgb.y - rgb.z) / sqrtf(2.0f);
+
+  float angle = h_delta * 2.0f * PI;
+  float ct = cosf(angle);
+  float st = sinf(angle);
+  float rotated_u = u * ct - v * st;
+  float rotated_v = u * st + v * ct;
+  u = rotated_u * fmaxf(0.0f, s_gain);
+  v = rotated_v * fmaxf(0.0f, s_gain);
+
+  float3 out = f3_make(
+      neutral + 2.0f * u / sqrtf(6.0f),
+      neutral - u / sqrtf(6.0f) + v / sqrtf(2.0f),
+      neutral - u / sqrtf(6.0f) - v / sqrtf(2.0f));
+
+  float weight = cu_rgb_direct_sat_value(out);
+  float brightness_gain = fmaxf(0.0f, 1.0f + l_delta * weight);
+  return f3_make(out.x * brightness_gain, out.y * brightness_gain,
+                 out.z * brightness_gain);
+}
+
 // ─── Main Kernel — Parallel Pipeline (1 roundtrip) ────────────────────────
 
 __global__ void ColorEqualizerKernel(
@@ -375,6 +425,20 @@ __global__ void ColorEqualizerKernel(
     rgb.x /= alpha;
     rgb.y /= alpha;
     rgb.z /= alpha;
+  }
+
+  if (spaceType == -1) {
+    rgb = cu_apply_rgb_direct_equalizer(rgb, p_Lut, 256);
+    if (p_OutputPremultiplied != 0) {
+      rgb.x *= alpha;
+      rgb.y *= alpha;
+      rgb.z *= alpha;
+    }
+    p_Output[dstIdx + 0] = rgb.x;
+    p_Output[dstIdx + 1] = rgb.y;
+    p_Output[dstIdx + 2] = rgb.z;
+    p_Output[dstIdx + 3] = alpha;
+    return;
   }
 
   // ── Single forward conversion ─────────────────────────────────────────

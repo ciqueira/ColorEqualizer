@@ -13,7 +13,7 @@
 
 typedef struct {
     int   inputCS;       // 0=ACES AP1, 1=DWG, 2=AWG3, 3=AWG4
-    int   spaceType;     // 8=RGB Spherical, 11=OKLCH
+    int   spaceType;     // -1=RGB Direct, 8=RGB Spherical, 11=OKLCH
 
     float hueMaster;     // 0.0–2.0, default 1.0
     float hueVals[10];   // -1.0–1.0, default 0.0

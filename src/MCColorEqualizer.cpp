@@ -45,7 +45,7 @@
 #define kPluginGrouping "MC Plugins"
 #define kPluginDescription                                                     \
   "10-Band Color Equalizer with Hue, Saturation and Brightness controls. "     \
-  "Supports RGB Spherical and OKLCH color models."
+  "Supports RGB Direct, RGB Spherical and OKLCH color models."
 #define kPluginIdentifier "com.MCColorEqualizer"
 #define kPluginVersionMajor 1
 #define kPluginVersionMinor 0
@@ -89,8 +89,10 @@ static const char *kLumLabels[10] = {
 static int mapSpaceType(int uiIndex) {
   switch (uiIndex) {
   case 0:
-    return 8; // RGB Spherical
+    return -1; // RGB Direct
   case 1:
+    return 8; // RGB Spherical
+  case 2:
     return 11; // OKLCH
   default:
     return 8;
@@ -539,9 +541,10 @@ void MCColorEqualizerFactory::describeInContext(
     OFX::ChoiceParamDescriptor *spt = p_Desc.defineChoiceParam(kParamSpaceType);
     spt->setLabels("Model / Space Type", "Model / Space Type",
                    "Model / Space Type");
+    spt->appendOption("RGB Direct");
     spt->appendOption("RGB Spherical");
     spt->appendOption("OKLCH");
-    spt->setDefault(0); // RGB Spherical
+    spt->setDefault(1); // RGB Spherical
     page->addChild(*spt);
   }
 

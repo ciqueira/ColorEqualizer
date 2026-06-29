@@ -520,10 +520,62 @@ inline float3 sample_lut_1d(const float* lut, int num_points, float normalized_x
     );
 }
 
+// ─── RGB Direct equalizer ─────────────────────────────────────────────────
+
+inline float rgb_direct_sat_value(float3 rgb) {
+    const float neutral = (rgb.x + rgb.y + rgb.z) / 3.0f;
+    const float cx = rgb.x - neutral;
+    const float cy = rgb.y - neutral;
+    const float cz = rgb.z - neutral;
+    const float chroma_mag = sqrtf(cx * cx + cy * cy + cz * cz);
+    return clampf(chroma_mag / (fabsf(neutral) + chroma_mag + 1.0e-6f),
+                  0.0f, 1.0f);
+}
+
+inline float3 apply_rgb_direct_equalizer(float3 rgb, const float* lut,
+                                         int lut_size) {
+    const float hue_normalized = rgb_opponent_hue(rgb, 0.0f);
+    const float3 eq = sample_lut_1d(lut, lut_size, hue_normalized);
+    const float h_delta = eq.x;
+    const float s_gain = eq.y;
+    const float l_delta = eq.z;
+
+    if (fabsf(h_delta) < 1e-6f &&
+        fabsf(s_gain - 1.0f) < 1e-6f &&
+        fabsf(l_delta) < 1e-6f) {
+        return rgb;
+    }
+
+    const float neutral = (rgb.x + rgb.y + rgb.z) / 3.0f;
+    float u = (2.0f * rgb.x - rgb.y - rgb.z) / sqrtf(6.0f);
+    float v = (rgb.y - rgb.z) / sqrtf(2.0f);
+
+    const float angle = h_delta * 2.0f * PI;
+    const float ct = cosf(angle);
+    const float st = sinf(angle);
+    const float rotated_u = u * ct - v * st;
+    const float rotated_v = u * st + v * ct;
+    u = rotated_u * fmaxf(0.0f, s_gain);
+    v = rotated_v * fmaxf(0.0f, s_gain);
+
+    float3 out = make_float3(
+        neutral + 2.0f * u / sqrtf(6.0f),
+        neutral - u / sqrtf(6.0f) + v / sqrtf(2.0f),
+        neutral - u / sqrtf(6.0f) - v / sqrtf(2.0f));
+
+    const float weight = rgb_direct_sat_value(out);
+    const float brightness_gain = fmaxf(0.0f, 1.0f + l_delta * weight);
+    return out * brightness_gain;
+}
+
 // ─── Apply All Equalizers — Parallel Pipeline (1 roundtrip via LUT) ───────
 
 inline float3 apply_equalizers_parallel(float3 rgb, int space_type, int input_cs,
                                         const float* lut, int lut_size) {
+    if (space_type == -1) {
+        return apply_rgb_direct_equalizer(rgb, lut, lut_size);
+    }
+
     // ── Single forward conversion ─────────────────────────────────────────
     float3 cs = convert_colorSpace_model(rgb, space_type, true, input_cs);
     float hue_normalized = cs.x;
