@@ -1,7 +1,5 @@
 # Color Equalizer
 
-[Português do Brasil](README.pt-BR.md)
-
 Color Equalizer allows selective hue, saturation, and brightness adjustment
 across ten continuous color regions.
 
