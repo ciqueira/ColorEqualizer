@@ -1,106 +1,122 @@
 # Color Equalizer
 
-### Selective color shaping with ten independent bands
+[Português do Brasil](README.pt-BR.md)
 
-Color Equalizer is an OFX color tool designed for precise, natural control of
-hue, saturation, and brightness.
+Color Equalizer allows selective hue, saturation, and brightness adjustment
+across ten continuous color regions.
 
-Inspired by the scene-referred color equalizer workflow popularized by
-darktable, it expands conventional six-vector tools into ten smoothly
-connected color regions:
+The plugin was inspired by the scene-referred workflow of darktable's Color
+Equalizer module. The OFX adaptation keeps the central idea: change colors from
+the pixel's original color, with continuous response between neighboring
+regions and less tendency toward artificial edges in gradients.
+
+Color Equalizer is distributed through
+[MCNexus](https://github.com/ciqueira/MCNexus). Nexus provides distribution,
+licensing, update delivery, and product support. MCNexus is the desktop
+application used to activate, install, update, and manage the plugin.
+
+## Included Plugins
+
+| Plugin | Version | Distribution | Get Key |
+| --- | --- | --- | --- |
+| Color Equalizer | Current | OpenKey | [Get Key](https://bridge.magnociqueira.com.br/github/claim?t=colorequalizer-oss&tmpl=bf1b283c-c8ed-4608-91a9-348a342a55a4&sig=67251aabd72f21ba) |
+
+## Color Equalizer
+
+Color Equalizer expands the conventional six-color workflow into ten connected
+regions:
 
 ```text
 Red · Orange · Yellow · Lime · Green
 Teal · Cyan · Blue · Purple · Magenta
 ```
 
-The goal is simple: make selective color adjustments feel continuous,
-without turning a gradient into a collection of isolated corrections.
+Each region has independent controls for:
 
-## Shape color, not masks
+- `Hue`: shifts hue toward neighboring tones.
+- `Saturation`: increases or reduces color intensity.
+- `Brightness`: changes the region's luminance presence without creating a
+  separate key.
 
-Each color region offers independent control over:
+The `Hue Equalizer`, `Saturation Equalizer`, and `Brightness Equalizer` groups
+provide per-color controls and a master control for scaling the group's effect.
+Hue, saturation, and brightness are evaluated from the same chromatic position,
+keeping continuity between adjacent bands.
 
-- **Hue** — move a color toward its neighboring tones.
-- **Saturation** — strengthen or soften color intensity.
-- **Brightness** — reshape the presence of a color without a separate key.
+In `RGB Spherical` and `OKLCH`, the plugin converts once into the selected
+model, applies the three combined deltas, and converts back to RGB. In
+`RGB Direct`, the correction is applied directly through the relationship
+between RGB channels.
 
-Color controls use an independent periodic Fourier-series implementation across
-10 bands distributed around the hue circle. This provides smooth transitions
-between neighboring colors and perfect continuity between magenta and red.
+`Model / Space Type` defines how the color position is interpreted:
 
-## Two different views of color
+- `RGB Direct`: works directly with the relationship between RGB channels.
+- `RGB Spherical`: uses a spherical reading around the neutral axis, with color
+  direction, distance from gray, and intensity in the same model.
+- `OKLCH`: uses a perceptual reading based on Oklab, useful for separating hue,
+  chroma, and lightness.
 
-Color Equalizer includes two processing models. They share the same controls
-but produce different creative responses.
-
-### RGB Spherical
-
-RGB Spherical reorganizes the selected log signal around the neutral axis.
-It is useful when you want a direct relationship between color direction,
-distance from gray, and signal intensity.
-
-Its opponent-space geometry helps preserve neutral tones while providing
-smooth movement through highly saturated regions.
-
-### OKLCH
-
-OKLCH offers a perceptual view of color based on Oklab. It is especially
-useful for controlled hue movement and intuitive separation between chroma and
-lightness.
-
-The implementation preserves the smooth compressed response of the original
-Color Equalizer while using corrected color-space matrices and dedicated
-handling for difficult blue and purple gradients.
-
-## Designed for modern color pipelines
-
-The plugin supports:
+Available input presets:
 
 - ACES AP1 / ACEScct
 - DaVinci Wide Gamut / Intermediate
 - ARRI Wide Gamut 3 / LogC3
 - ARRI Wide Gamut 4 / LogC4
 
-RGB Spherical works directly on the selected encoded signal. OKLCH preserves
-the encoded-signal response of the original equalizer and chromatically adapts
-ACES AP1 between D60 and the D65 domain expected by Oklab.
+## Processing Models
 
-## GPU processing
+The processing model is parallel. The Hue, Saturation, and Brightness groups do
+not form a serial stack where one adjustment feeds the next. All three groups
+are precomputed into one LUT, sampled from the pixel's original color position,
+and applied together in the same processing step.
 
-Pixel processing runs on:
+```text
+Input RGB -> original color position
 
-- **Metal** on macOS
-- **CUDA** on Windows and Linux
+original position -> Hue Equalizer        -> hue delta
+original position -> Saturation Equalizer -> saturation gain
+original position -> Brightness Equalizer -> brightness delta
 
-The two backends share the same color mathematics, equalizer response, alpha
-handling, and numerical safeguards.
+Input RGB + combined deltas -> Output RGB
+```
 
-## Get Color Equalizer
+## Platform Support
 
-Color Equalizer is distributed through Nexus and available in
-[MCNexus](https://github.com/ciqueira/MCNexus), the official application for
-discovering, installing, and managing plugins.
+Current builds support:
 
-Nexus provides the distribution, licensing, updates, and product-support
-infrastructure. MCNexus brings these services together in the desktop
-application and provides current installation, activation, and compatibility
-information.
+- macOS, Apple Silicon and compatible Intel Macs
+- Windows x64
 
-### Get your license key
+Supported processing backends:
 
-[![Claim Free License](https://img.shields.io/badge/Claim%20License-GitHub%20Login-2ea44f?logo=github)](https://bridge.magnociqueira.com.br/github/claim?t=colorequalizer-oss&tmpl=bf1b283c-c8ed-4608-91a9-348a342a55a4&sig=67251aabd72f21ba)
+- Metal on macOS
+- CUDA on Windows
 
-Use the button above to request your Color Equalizer key with your GitHub
-account. The license is issued through Nexus, and the key is activated and
-managed in MCNexus.
+## Installation
 
-## Project information
+1. Use the `Get Key` link above to generate the OpenKey license with a GitHub
+   account.
+2. Open MCNexus.
+3. Activate Color Equalizer with the issued key.
+4. Install or update the plugin through MCNexus.
 
-Color Equalizer is a source-available project. Public access to this repository
-is intended for inspection, documentation, and technical transparency; it
-does not make the project open-source software.
+Lost key: open the same claim link with the same GitHub account to recover the
+issued license.
 
-Licensing and required community notices are available in
-[LICENSE.md](LICENSE.md), [BINARY_LICENSE.md](BINARY_LICENSE.md), and
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## License
+
+Color Equalizer is source-available for review, documentation, and technical
+transparency. Public access to this repository does not make the project
+open-source software.
+
+See:
+
+- [LICENSE.md](LICENSE.md)
+- [BINARY_LICENSE.md](BINARY_LICENSE.md)
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
+## Binary Releases
+
+Official binary releases are distributed through Nexus and installed with
+MCNexus. Use only official MCNexus or project release channels for binaries,
+updates, and activation.
