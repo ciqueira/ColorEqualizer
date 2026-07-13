@@ -4,7 +4,7 @@
 
 Última atualização: 13 de julho de 2026
 
-Versão do documento: `color-equalizer-terms-2026-07-13`
+Versão do documento: `color-equalizer-terms-2026-07-13-v2`
 
 Vendedor e desenvolvedor do produto: **56.442.448 MAGNO DIAS CIQUEIRA**, nome
 comercial **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Endereço de
@@ -36,9 +36,12 @@ e `BINARY_LICENSE.md`.
 ## 3. Compra opcional de Supporter
 
 A compra de Supporter financia manutenção, compatibilidade, testes e
-continuidade do desenvolvimento. Ela não desbloqueia recursos do plugin, não
-altera a edição técnica da licença existente e não transfere propriedade do
-software.
+continuidade do desenvolvimento. Ela não adiciona recursos exclusivos ao
+plugin nem transfere propriedade do software. Para entregar e vincular o
+benefício Supporter, o Nexus poderá emitir uma nova chave técnica ou associar e
+atualizar uma chave existente. A edição `Full` eventualmente exibida durante a
+entrega é uma designação técnica de licenciamento, não um recurso pago anunciado
+separadamente.
 
 Para a oferta exibida no checkout, o benefício inclui atualmente:
 
@@ -47,9 +50,11 @@ Para a oferta exibida no checkout, o benefício inclui atualmente:
 - comunicações operacionais por e-mail sobre releases, compatibilidade,
   manutenção, segurança e alterações relevantes do Color Equalizer.
 
-Antes do checkout, é necessária uma licença ativa e não-beta do Color Equalizer
-associada ao mesmo e-mail verificado. O suporte pode ser renovado após o fim da
-vigência paga atual. O pagamento não garante data específica de release,
+Não é necessária uma chave anterior do Color Equalizer antes do checkout.
+Usuários existentes devem autenticar com a mesma conta GitHub e o mesmo e-mail
+verificado usados na chave atual. Esta oferta cobre um período de suporte de 12
+meses. Uma eventual opção futura de renovação será apresentada separadamente
+quando estiver disponível. O pagamento não garante data específica de release,
 funcionalidade solicitada, suporte vitalício, disponibilidade ininterrupta ou
 compatibilidade com todo host, sistema operacional ou hardware.
 

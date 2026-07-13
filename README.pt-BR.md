@@ -115,9 +115,11 @@ O benefício Color Equalizer Supporter inclui:
 - comunicações operacionais por e-mail sobre releases, compatibilidade,
   manutenção, segurança e alterações relevantes do Color Equalizer.
 
-A compra não desbloqueia recursos nem altera a edição técnica da licença.
-Obtenha primeiro a chave gratuita acima; o checkout exige uma licença ativa e
-elegível do Color Equalizer vinculada ao mesmo e-mail verificado.
+A compra não adiciona recursos exclusivos ao plugin. Para entregar e vincular
+o benefício Supporter, o Nexus poderá emitir uma nova chave técnica ou associar
+e atualizar uma chave existente. Não é necessário obter a chave gratuita antes
+do checkout; usuários existentes devem usar a mesma conta GitHub e o mesmo
+e-mail verificado.
 
 [Comprar Color Equalizer Supporter](https://bridge.magnociqueira.com.br/commerce/start?t=colorequalizer-oss&offer=color-equalizer-supporter)
 

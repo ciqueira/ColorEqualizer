@@ -113,9 +113,10 @@ The Color Equalizer Supporter benefit includes:
 - operational email notices about Color Equalizer releases, compatibility,
   maintenance, security, and material service changes.
 
-The purchase does not unlock plugin features or change your technical license
-edition. Obtain the free key above first; checkout requires an active eligible
-Color Equalizer license linked to the same verified email.
+The purchase does not add exclusive plugin features. To deliver and associate
+the Supporter benefit, Nexus may issue a new technical key or associate and
+update an existing key. You do not need to obtain the free key before checkout;
+existing users should use the same GitHub account and verified email.
 
 [Purchase Color Equalizer Supporter](https://bridge.magnociqueira.com.br/commerce/start?t=colorequalizer-oss&offer=color-equalizer-supporter)
 

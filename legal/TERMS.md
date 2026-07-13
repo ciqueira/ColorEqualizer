@@ -4,7 +4,7 @@
 
 Last updated: July 13, 2026
 
-Document version: `color-equalizer-terms-2026-07-13`
+Document version: `color-equalizer-terms-2026-07-13-v2`
 
 Seller and product developer: **56.442.448 MAGNO DIAS CIQUEIRA**, trade name
 **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Service address: Avenida
@@ -35,8 +35,11 @@ Source and binary rights are defined respectively by `LICENSE.md` and
 ## 3. Optional Supporter purchase
 
 The Supporter purchase funds maintenance, compatibility work, testing, and
-continued development. It does not unlock plugin features, change the technical
-edition of an existing license, or provide ownership of the software.
+continued development. It does not add exclusive plugin features or provide
+ownership of the software. To deliver and associate the Supporter benefit,
+Nexus may issue a new technical key or associate and update an existing key. A
+`Full` edition shown during delivery is a technical licensing designation, not
+a separately advertised paid feature.
 
 For the offer displayed at checkout, the benefit currently includes:
 
@@ -44,11 +47,13 @@ For the offer displayed at checkout, the benefit currently includes:
 - operational email notices about Color Equalizer releases, compatibility,
   maintenance, security, and material service changes.
 
-A current active non-beta Color Equalizer license associated with the same
-verified email is required before checkout. Support may be renewed after the
-current paid support period expires. Payment does not guarantee a particular
-release date, requested feature, perpetual support, uninterrupted availability,
-or compatibility with every host, operating system, or hardware configuration.
+No previous Color Equalizer key is required before checkout. Existing users
+should authenticate with the same GitHub account and verified email used for
+their current key. This offer covers one 12-month support period. Any future
+renewal option will be presented separately if it becomes available. Payment
+does not guarantee a particular release date, requested feature, perpetual
+support, uninterrupted availability, or compatibility with every host,
+operating system, or hardware configuration.
 
 Support scope and response targets are described in the
 [Support Policy](SUPPORT_POLICY.md).
