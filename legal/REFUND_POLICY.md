@@ -4,21 +4,24 @@
 
 Last updated: July 13, 2026
 
-Document version: `color-equalizer-refunds-2026-07-13-draft`
+Document version: `color-equalizer-refunds-2026-07-13`
 
-> **Pre-release notice:** Live sales must not be enabled until this document
-> contains the seller's complete legal/business name, CPF or CNPJ as
-> applicable, and geographic service address, consistently with checkout.
+Seller: **56.442.448 MAGNO DIAS CIQUEIRA**, trade name **Magno Dias
+Ciqueira**, CNPJ **56.442.448/0001-10**. Service address: Avenida Augusto de
+Lima, 233, Belo Horizonte - MG, ZIP 30190-000, Brazil.
 
 This policy applies to the optional Color Equalizer Supporter purchase. The
 plugin itself remains available free of charge, and the Supporter purchase pays
 for a time-limited support and operational-communication benefit rather than
 unlocking plugin features.
+The seller's [General Cancellation and Refund Policy](https://legal.magnociqueira.com.br/refunds/)
+also applies without reducing the product-specific or mandatory rights below.
 
 ## 1. How to request cancellation or a refund
 
-Send a private request to
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br) with:
+Use the [electronic cancellation form](https://legal.magnociqueira.com.br/cancel/)
+or send a private request to
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br) with:
 
 - the email used at checkout;
 - the approximate payment date and amount;
@@ -73,7 +76,7 @@ authorize retaliation against an unrelated free license.
 ## 6. Contact and legal references
 
 Refund contact:
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
 - [Brazilian Consumer Protection Code](https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm)
 - [Brazilian E-commerce Decree No. 7,962/2013](https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2013/decreto/d7962.htm)

@@ -30,17 +30,23 @@ The product documents do not replace the Nexus documents. Both layers may
 apply to the same transaction because one governs the product and commercial
 benefit while the other governs the delivery and licensing infrastructure.
 
-## Live launch blocker
+## Seller and publication
 
-Before enabling Stripe Live Mode, replace the seller-identification notice in
-the Terms and Refund Policy with the seller's complete legal/business name,
-CPF or CNPJ as applicable, and a geographic service address. The same identity
-must be shown consistently in checkout and post-purchase confirmation.
+The seller and product controller is **56.442.448 MAGNO DIAS CIQUEIRA**, trade
+name **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Purchase, Supporter,
+privacy, cancellation, and private support requests use
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
-The drafts are an operational compliance baseline, not legal or accounting
-advice. A Brazilian lawyer and accountant should review the final published
-versions, the MEI activity classification, invoicing procedure, and checkout
-presentation before launch.
+The general seller documents published at
+[legal.magnociqueira.com.br](https://legal.magnociqueira.com.br/) complement
+these product-specific documents. The same seller identity, applicable legal
+URLs, product description, price, and Supporter duration must be shown
+consistently at checkout and after purchase.
+
+These documents are an operational compliance baseline, not legal or
+accounting advice. A Brazilian lawyer and accountant should review the
+published versions, the MEI activity classification, invoicing procedure, and
+checkout presentation before the commercial launch.
 
 ## References
 

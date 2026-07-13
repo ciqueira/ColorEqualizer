@@ -54,7 +54,7 @@ remain unaffected.
 ## 5. Contact
 
 Private Supporter and purchase support:
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
 Public bug reports:
 [Color Equalizer Issues](https://github.com/ciqueira/ColorEqualizer/issues).

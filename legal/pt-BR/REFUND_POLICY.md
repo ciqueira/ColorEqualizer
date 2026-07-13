@@ -4,21 +4,24 @@
 
 Última atualização: 13 de julho de 2026
 
-Versão do documento: `color-equalizer-refunds-2026-07-13-draft`
+Versão do documento: `color-equalizer-refunds-2026-07-13`
 
-> **Aviso de pré-lançamento:** vendas Live não podem ser habilitadas até que
-> este documento contenha o nome civil ou empresarial completo do vendedor,
-> CPF ou CNPJ aplicável e endereço geográfico de atendimento, de forma
-> consistente com o checkout.
+Vendedor: **56.442.448 MAGNO DIAS CIQUEIRA**, nome comercial **Magno Dias
+Ciqueira**, CNPJ **56.442.448/0001-10**. Endereço de atendimento: Avenida
+Augusto de Lima, 233, Belo Horizonte - MG, CEP 30190-000, Brasil.
 
 Esta política se aplica à compra opcional de Supporter do Color Equalizer. O
 plugin continua disponível gratuitamente, e a compra remunera um benefício com
 prazo de suporte e comunicações operacionais, não o desbloqueio de recursos.
+A [Política Geral de Cancelamento e Reembolso do Vendedor](https://legal.magnociqueira.com.br/refunds/)
+também se aplica, sem reduzir os direitos específicos do produto ou os direitos
+obrigatórios descritos abaixo.
 
 ## 1. Como solicitar cancelamento ou reembolso
 
-Envie uma solicitação privada para
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br), informando:
+Use o [formulário eletrônico de cancelamento](https://legal.magnociqueira.com.br/cancel/)
+ou envie uma solicitação privada para
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br), informando:
 
 - e-mail usado no checkout;
 - data aproximada e valor do pagamento;
@@ -74,7 +77,7 @@ obrigatórios nem autoriza retaliação contra a licença gratuita não relacion
 ## 6. Contato e referências legais
 
 Contato para reembolso:
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
 - [Código de Defesa do Consumidor](https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm)
 - [Decreto do comércio eletrônico nº 7.962/2013](https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2013/decreto/d7962.htm)

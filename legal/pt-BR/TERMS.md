@@ -4,13 +4,13 @@
 
 Última atualização: 13 de julho de 2026
 
-Versão do documento: `color-equalizer-terms-2026-07-13-draft`
+Versão do documento: `color-equalizer-terms-2026-07-13`
 
-> **Aviso de pré-lançamento:** vendas Live não podem ser habilitadas até que
-> esta seção identifique o nome civil ou empresarial completo do vendedor, CPF
-> ou CNPJ aplicável e endereço geográfico de atendimento. Vendedor e
-> desenvolvedor do produto: Magno Ciqueira, Brasil. Contato:
-> [nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
+Vendedor e desenvolvedor do produto: **56.442.448 MAGNO DIAS CIQUEIRA**, nome
+comercial **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Endereço de
+atendimento: Avenida Augusto de Lima, 233, Belo Horizonte - MG, CEP 30190-000,
+Brasil. Contato:
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
 ## 1. Escopo
 
@@ -19,6 +19,8 @@ Supporter do Color Equalizer. O uso do plugin compilado também segue a
 [Licença do Binário](../../BINARY_LICENSE.md). Instalação, ativação,
 atualizações e gerenciamento da licença pelo MCNexus seguem separadamente os
 [Termos do Nexus](https://github.com/ciqueira/MCNexus/blob/main/pt-BR/TERMS.md).
+Os [Termos Gerais para Compras Online](https://legal.magnociqueira.com.br/terms/)
+do vendedor também se aplicam à transação comercial.
 
 ## 2. Licença gratuita do plugin
 
@@ -139,6 +141,6 @@ e de outros direitos obrigatórios.
 ## 12. Contato
 
 Solicitações privadas sobre compra, cancelamento, privacidade e suporte:
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
 Não publique chaves, dados de pagamento ou dados pessoais em GitHub Issues.

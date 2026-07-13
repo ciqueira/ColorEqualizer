@@ -4,7 +4,7 @@
 
 Última atualização: 13 de julho de 2026
 
-Versão do documento: `color-equalizer-privacy-2026-07-13-draft`
+Versão do documento: `color-equalizer-privacy-2026-07-13`
 
 Esta política descreve o tratamento de dados pessoais ligado especificamente
 ao Color Equalizer, à licença gratuita, à compra opcional de Supporter, ao
@@ -12,15 +12,17 @@ e-mail operacional e ao suporte do produto. A
 [Política de Privacidade do Nexus](https://github.com/ciqueira/MCNexus/blob/main/pt-BR/PRIVACY.md)
 descreve separadamente o tratamento necessário para operar a plataforma de
 distribuição, ativação, atualização e segurança do MCNexus.
+A [Política Geral de Privacidade do Vendedor](https://legal.magnociqueira.com.br/privacy/)
+complementa esta política para o tratamento comum à compra e ao pagamento.
 
 ## 1. Controlador e contato
 
-O controlador do produto Color Equalizer é Magno Ciqueira, Brasil. Solicitações
-privadas de privacidade e de direitos do titular podem ser enviadas para
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
-
-Antes de vendas Live, a identificação empresarial completa do
-vendedor/controlador também deve ser publicada nos Termos e no checkout.
+O controlador do produto Color Equalizer é **56.442.448 MAGNO DIAS CIQUEIRA**,
+nome comercial **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Endereço
+de atendimento: Avenida Augusto de Lima, 233, Belo Horizonte - MG, CEP
+30190-000, Brasil. Solicitações privadas de privacidade e de direitos do titular
+podem ser enviadas para
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
 Na implantação própria atual, Color Equalizer e Nexus são mantidos pelo mesmo
 controlador, mas conservam documentos separados para distinguir decisões do
@@ -146,7 +148,7 @@ regulamentada e aplicável, revisão ou oposição quando cabível e retirada do
 consentimento para tratamentos futuros baseados em consentimento.
 
 Envie a solicitação para
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br), com o e-mail
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br), com o e-mail
 cadastrado e informações suficientes para localizar o registro. Informações
 adicionais serão pedidas somente quando razoavelmente necessárias para verificar
 a identidade e proteger a conta. Solicitações de privacidade não devem ser
@@ -156,7 +158,7 @@ de defesa do consumidor aplicável, após contatar o controlador quando exigido.
 ## 9. Segurança e incidentes
 
 Medidas técnicas e organizacionais razoáveis incluem HTTPS, acesso
-administrativo restrito, segredos isolados por tenant, criptografia de
+administrativo restrito, segredos isolados por tenant e conta de pagamento, criptografia de
 credenciais de integrações, verificação de webhooks, links de claim assinados e
 minimização de dados pessoais nos logs. Nenhum sistema elimina todo risco.
 Incidentes serão avaliados e comunicados conforme a legislação aplicável.
@@ -168,8 +170,9 @@ a crianças. Dados de menores não são solicitados intencionalmente pelo fluxo 
 licença ou Supporter.
 
 Mudanças relevantes serão datadas e comunicadas por canal adequado do produto
-ou contato cadastrado. A versão disponibilizada no checkout será registrada na
-transação quando o sistema comercial suportar aceite versionado.
+ou contato cadastrado. No fluxo Commerce por conta de pagamento, a transação
+registra as URLs e versões jurídicas configuradas e a evidência de aceite
+informada pelo Stripe. Compras legadas podem não conter esse registro.
 
 Contato de privacidade:
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).

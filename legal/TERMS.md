@@ -4,13 +4,12 @@
 
 Last updated: July 13, 2026
 
-Document version: `color-equalizer-terms-2026-07-13-draft`
+Document version: `color-equalizer-terms-2026-07-13`
 
-> **Pre-release notice:** Live sales must not be enabled until this section
-> identifies the seller's complete legal/business name, CPF or CNPJ as
-> applicable, and geographic service address. Seller and product developer:
-> Magno Ciqueira, Brazil. Contact:
-> [nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
+Seller and product developer: **56.442.448 MAGNO DIAS CIQUEIRA**, trade name
+**Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Service address: Avenida
+Augusto de Lima, 233, Belo Horizonte - MG, ZIP 30190-000, Brazil. Contact:
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
 ## 1. Scope
 
@@ -19,6 +18,8 @@ optional Color Equalizer Supporter purchase. Use of the compiled plugin is also
 subject to the [Binary License](../BINARY_LICENSE.md). Installation, activation,
 updates, and license management through MCNexus are separately subject to the
 [Nexus Terms](https://github.com/ciqueira/MCNexus/blob/main/TERMS.md).
+The seller's [General Online Purchase Terms](https://legal.magnociqueira.com.br/terms/)
+also apply to the commercial transaction.
 
 ## 2. Free plugin license
 
@@ -136,6 +137,6 @@ other non-waivable rights remain unaffected.
 ## 12. Contact
 
 Purchase, cancellation, privacy, and private support requests:
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
 Do not publish license keys, payment details, or personal data in GitHub Issues.

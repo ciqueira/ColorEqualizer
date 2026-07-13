@@ -30,18 +30,23 @@ Os documentos do produto não substituem os documentos do Nexus. As duas
 camadas podem se aplicar à mesma transação: uma rege o produto e o benefício
 comercial, e a outra rege a infraestrutura de entrega e licenciamento.
 
-## Bloqueio para lançamento Live
+## Vendedor e publicação
 
-Antes de habilitar o Stripe Live Mode, o aviso de identificação do vendedor nos
-Termos e na Política de Reembolso deve ser substituído pelo nome empresarial ou
-nome civil completo, CPF ou CNPJ aplicável e endereço geográfico de
-atendimento. A mesma identidade deve aparecer de forma consistente no checkout
-e na confirmação posterior à compra.
+O vendedor e controlador do produto é **56.442.448 MAGNO DIAS CIQUEIRA**, nome
+comercial **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Solicitações
+privadas sobre compra, Supporter, privacidade, cancelamento e suporte usam
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
-Estes rascunhos são uma base operacional de conformidade, não aconselhamento
+Os documentos gerais do vendedor publicados em
+[legal.magnociqueira.com.br](https://legal.magnociqueira.com.br/) complementam
+estes documentos específicos do produto. A mesma identidade, URLs jurídicas,
+descrição do produto, preço e duração do Supporter devem aparecer de forma
+consistente no checkout e após a compra.
+
+Estes documentos são uma base operacional de conformidade, não aconselhamento
 jurídico ou contábil. Um advogado e um contador no Brasil devem revisar as
-versões finais, o enquadramento da atividade do MEI, a emissão de documentos
-fiscais e a apresentação do checkout antes do lançamento.
+versões publicadas, o enquadramento da atividade do MEI, a emissão de documentos
+fiscais e a apresentação do checkout antes do lançamento comercial.
 
 ## Referências
 

@@ -4,7 +4,7 @@
 
 Last updated: July 13, 2026
 
-Document version: `color-equalizer-privacy-2026-07-13-draft`
+Document version: `color-equalizer-privacy-2026-07-13`
 
 This policy describes personal-data processing specifically connected to Color
 Equalizer, its free license, the optional Supporter purchase, operational
@@ -12,15 +12,16 @@ email, and product support. The
 [Nexus Privacy Policy](https://github.com/ciqueira/MCNexus/blob/main/PRIVACY.md)
 separately describes processing required to operate the MCNexus distribution,
 activation, update, and security platform.
+The seller's [General Privacy Policy](https://legal.magnociqueira.com.br/privacy/)
+complements this policy for common purchase and payment processing.
 
 ## 1. Controller and contact
 
-The Color Equalizer product controller is Magno Ciqueira, Brazil. Privacy and
-data-subject requests may be sent privately to
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
-
-Before Live sales, the complete seller/controller business identification must
-also be published in the product Terms and checkout.
+The Color Equalizer product controller is **56.442.448 MAGNO DIAS CIQUEIRA**,
+trade name **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Service
+address: Avenida Augusto de Lima, 233, Belo Horizonte - MG, ZIP 30190-000,
+Brazil. Privacy and data-subject requests may be sent privately to
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
 
 In the current first-party deployment, Color Equalizer and Nexus are maintained
 by the same controller but retain separate documents so that product decisions
@@ -142,7 +143,7 @@ portability where regulated and applicable, review or objection where
 available, and withdrawal of consent for future consent-based processing.
 
 Send requests to
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br) with the
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br) with the
 registered email and enough information to locate the record. Additional
 information may be requested only when reasonably needed to verify identity and
 protect the account. Privacy requests must not be posted in public GitHub
@@ -152,7 +153,7 @@ authority after first contacting the controller where required.
 ## 9. Security and incidents
 
 Reasonable technical and organizational measures include HTTPS, restricted
-administrative access, tenant-scoped secrets, encryption of integration
+administrative access, tenant- and payment-account-scoped secrets, encryption of integration
 credentials, payment webhook verification, signed claim links, and minimization
 of personal data in logs. No system is completely risk-free. Security incidents
 will be assessed and notified as required by applicable law.
@@ -164,9 +165,10 @@ children. Personal data from minors is not intentionally requested through the
 license or Supporter flow.
 
 Material policy changes will be dated and communicated through an appropriate
-product or registered-contact channel. The version made available at checkout
-is recorded for the relevant transaction where the commerce system supports
-versioned acceptance.
+product or registered-contact channel. In the payment-account Commerce flow,
+the transaction records the configured legal URLs and versions and the
+acceptance evidence reported by Stripe. Legacy purchases might not contain
+this record.
 
 Privacy contact:
-[nexus@magnociqueira.com.br](mailto:nexus@magnociqueira.com.br).
+[tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).
