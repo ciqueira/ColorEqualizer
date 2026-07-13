@@ -103,6 +103,31 @@ Backends de processamento suportados:
 Perda de chave: o mesmo link de solicitação, aberto com a mesma conta GitHub,
 recupera a licença já emitida.
 
+## Apoie o Projeto
+
+O Color Equalizer permanece disponível gratuitamente com todos os recursos do
+plugin publicados atualmente. Se ele for útil no seu trabalho, você pode apoiar
+opcionalmente sua manutenção e a continuidade do desenvolvimento.
+
+O benefício Color Equalizer Supporter inclui:
+
+- suporte prioritário e privado por e-mail por 12 meses; e
+- comunicações operacionais por e-mail sobre releases, compatibilidade,
+  manutenção, segurança e alterações relevantes do Color Equalizer.
+
+A compra não desbloqueia recursos nem altera a edição técnica da licença.
+Obtenha primeiro a chave gratuita acima; o checkout exige uma licença ativa e
+elegível do Color Equalizer vinculada ao mesmo e-mail verificado.
+
+[Comprar Color Equalizer Supporter](https://bridge.magnociqueira.com.br/commerce/start?t=colorequalizer-oss&offer=color-equalizer-supporter)
+
+Antes de comprar, leia os [Termos de Supporter](legal/pt-BR/TERMS.md), a
+[Política de Reembolso](legal/pt-BR/REFUND_POLICY.md), a
+[Política de Privacidade](legal/pt-BR/PRIVACY.md) e a
+[Política de Suporte](legal/pt-BR/SUPPORT_POLICY.md). Mensagens sobre outros
+produtos não são incluídas automaticamente e exigirão escolha separada de
+marketing se esse recurso for oferecido no futuro.
+
 ## Licença
 
 Color Equalizer é *source-available* para revisão, documentação e transparência
@@ -114,6 +139,7 @@ Consulte:
 - [LICENSE.md](LICENSE.md)
 - [BINARY_LICENSE.md](BINARY_LICENSE.md)
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+- [Documentos legais do produto](legal/pt-BR/README.md)
 
 ## Releases Binários
 
