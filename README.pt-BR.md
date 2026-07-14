@@ -17,9 +17,9 @@ aplicativo desktop usado para ativar, instalar, atualizar e gerenciar o plugin.
 
 ## Plugins Incluídos
 
-| Plugin | Versão | Distribuição | Obter Chave |
-| --- | --- | --- | --- |
-| Color Equalizer | Atual | OpenKey | [Obter Chave](https://bridge.magnociqueira.com.br/github/claim?t=colorequalizer-oss&tmpl=bf1b283c-c8ed-4608-91a9-348a342a55a4&sig=67251aabd72f21ba) |
+| Plugin | Versão | Distribuição | Chave Gratuita | Apoie o Projeto |
+| --- | --- | --- | --- | --- |
+| Color Equalizer | Atual | OpenKey | [Obter Chave](https://bridge.magnociqueira.com.br/github/claim?t=colorequalizer-oss&tmpl=bf1b283c-c8ed-4608-91a9-348a342a55a4&sig=67251aabd72f21ba) | [Torne-se um Apoiador](https://bridge.magnociqueira.com.br/commerce/start?t=colorequalizer-oss&offer=color-equalizer-supporter) |
 
 ## Color Equalizer
 
