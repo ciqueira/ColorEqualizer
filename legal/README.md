@@ -8,6 +8,12 @@ These documents apply specifically to Color Equalizer and its optional
 Supporter purchase. MCNexus has separate documents for the distribution,
 installation, activation, update, and platform-security services it provides.
 
+The stable published product pages used by Commerce are available at
+[legal.magnociqueira.com.br/products/color-equalizer/](https://legal.magnociqueira.com.br/products/color-equalizer/).
+The Markdown files in this repository remain available for discoverability and
+review; the version recorded with a purchase identifies the terms accepted for
+that order.
+
 ```text
 Color Equalizer (product controller and seller)
 ├── TERMS.md                 product and Supporter terms

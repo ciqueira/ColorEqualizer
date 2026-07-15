@@ -123,12 +123,15 @@ e-mail verificado.
 
 [Comprar Color Equalizer Supporter](https://bridge.magnociqueira.com.br/commerce/start?t=colorequalizer-oss&offer=color-equalizer-supporter)
 
-Antes de comprar, leia os [Termos de Supporter](legal/pt-BR/TERMS.md), a
-[Política de Reembolso](legal/pt-BR/REFUND_POLICY.md), a
-[Política de Privacidade](legal/pt-BR/PRIVACY.md) e a
-[Política de Suporte](legal/pt-BR/SUPPORT_POLICY.md). Mensagens sobre outros
-produtos não são incluídas automaticamente e exigirão escolha separada de
-marketing se esse recurso for oferecido no futuro.
+Antes de comprar, leia os
+[Termos de Supporter](https://legal.magnociqueira.com.br/pt-BR/products/color-equalizer/terms/),
+a [Política de Reembolso](https://legal.magnociqueira.com.br/pt-BR/products/color-equalizer/refunds/),
+a [Política de Privacidade](https://legal.magnociqueira.com.br/pt-BR/products/color-equalizer/privacy/)
+e a [Política de Suporte](https://legal.magnociqueira.com.br/pt-BR/products/color-equalizer/support/).
+Cópias Markdown permanecem em [`legal/`](legal/pt-BR/README.md) para consulta
+no repositório. Mensagens sobre outros produtos não são incluídas
+automaticamente e exigirão escolha separada de marketing se esse recurso for
+oferecido no futuro.
 
 ## Licença
 

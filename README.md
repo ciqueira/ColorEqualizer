@@ -120,11 +120,15 @@ existing users should use the same GitHub account and verified email.
 
 [Purchase Color Equalizer Supporter](https://bridge.magnociqueira.com.br/commerce/start?t=colorequalizer-oss&offer=color-equalizer-supporter)
 
-Before purchasing, read the [Supporter Terms](legal/TERMS.md),
-[Refund Policy](legal/REFUND_POLICY.md), [Privacy Policy](legal/PRIVACY.md), and
-[Support Policy](legal/SUPPORT_POLICY.md). Messages about unrelated products
-are not included automatically and require a separate marketing choice if one
-is offered in the future.
+Before purchasing, read the
+[Supporter Terms](https://legal.magnociqueira.com.br/products/color-equalizer/terms/),
+[Refund Policy](https://legal.magnociqueira.com.br/products/color-equalizer/refunds/),
+[Privacy Policy](https://legal.magnociqueira.com.br/products/color-equalizer/privacy/),
+and [Support Policy](https://legal.magnociqueira.com.br/products/color-equalizer/support/).
+Markdown copies remain under [`legal/`](legal/README.md) for repository
+discoverability. Messages about unrelated products are not included
+automatically and require a separate marketing choice if one is offered in the
+future.
 
 ## License
 
