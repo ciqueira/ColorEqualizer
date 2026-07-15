@@ -2,9 +2,9 @@
 
 [English](../PRIVACY.md) · [Português](PRIVACY.md)
 
-Última atualização: 13 de julho de 2026
+Última atualização: 15 de julho de 2026
 
-Versão do documento: `color-equalizer-privacy-2026-07-13`
+Versão do documento: `color-equalizer-privacy-2026-07-15`
 
 Esta política descreve o tratamento de dados pessoais ligado especificamente
 ao Color Equalizer, à licença gratuita, à compra opcional de Supporter, ao
@@ -12,7 +12,7 @@ e-mail operacional e ao suporte do produto. A
 [Política de Privacidade do Nexus](https://github.com/ciqueira/MCNexus/blob/main/pt-BR/PRIVACY.md)
 descreve separadamente o tratamento necessário para operar a plataforma de
 distribuição, ativação, atualização e segurança do MCNexus.
-A [Política Geral de Privacidade do Vendedor](https://legal.magnociqueira.com.br/privacy/)
+A [Política Geral de Privacidade do Vendedor](https://legal.magnociqueira.com.br/pt-BR/privacy/)
 complementa esta política para o tratamento comum à compra e ao pagamento.
 
 ## 1. Controlador e contato
@@ -172,7 +172,7 @@ licença ou Supporter.
 Mudanças relevantes serão datadas e comunicadas por canal adequado do produto
 ou contato cadastrado. No fluxo Commerce por conta de pagamento, a transação
 registra as URLs e versões jurídicas configuradas e a evidência de aceite
-informada pelo Stripe. Compras legadas podem não conter esse registro.
+informada pelo Stripe.
 
 Contato de privacidade:
 [tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).

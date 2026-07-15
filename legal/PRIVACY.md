@@ -2,9 +2,9 @@
 
 [English](PRIVACY.md) · [Português](pt-BR/PRIVACY.md)
 
-Last updated: July 13, 2026
+Last updated: July 15, 2026
 
-Document version: `color-equalizer-privacy-2026-07-13`
+Document version: `color-equalizer-privacy-2026-07-15`
 
 This policy describes personal-data processing specifically connected to Color
 Equalizer, its free license, the optional Supporter purchase, operational
@@ -167,8 +167,7 @@ license or Supporter flow.
 Material policy changes will be dated and communicated through an appropriate
 product or registered-contact channel. In the payment-account Commerce flow,
 the transaction records the configured legal URLs and versions and the
-acceptance evidence reported by Stripe. Legacy purchases might not contain
-this record.
+acceptance evidence reported by Stripe.
 
 Privacy contact:
 [tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br).

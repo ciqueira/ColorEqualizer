@@ -2,9 +2,9 @@
 
 [English](../TERMS.md) · [Português](TERMS.md)
 
-Última atualização: 13 de julho de 2026
+Última atualização: 15 de julho de 2026
 
-Versão do documento: `color-equalizer-terms-2026-07-13-v2`
+Versão do documento: `color-equalizer-terms-2026-07-15-v3`
 
 Vendedor e desenvolvedor do produto: **56.442.448 MAGNO DIAS CIQUEIRA**, nome
 comercial **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Endereço de
@@ -19,7 +19,7 @@ Supporter do Color Equalizer. O uso do plugin compilado também segue a
 [Licença do Binário](../../BINARY_LICENSE.md). Instalação, ativação,
 atualizações e gerenciamento da licença pelo MCNexus seguem separadamente os
 [Termos do Nexus](https://github.com/ciqueira/MCNexus/blob/main/pt-BR/TERMS.md).
-Os [Termos Gerais para Compras Online](https://legal.magnociqueira.com.br/terms/)
+Os [Termos Gerais para Compras Online](https://legal.magnociqueira.com.br/pt-BR/terms/)
 do vendedor também se aplicam à transação comercial.
 
 ## 2. Licença gratuita do plugin
@@ -74,6 +74,11 @@ sem processo expressamente aprovado pelo vendedor.
 O preço total, moeda, meios de pagamento e tributos aplicáveis são apresentados
 antes da confirmação. O Stripe processa o pagamento. Color Equalizer e Nexus
 não recebem o número completo do cartão ou credenciais bancárias do comprador.
+
+Uma mesma oferta pode apresentar preços fixos diferentes para cada moeda
+suportada. Esses preços são configurados separadamente e não representam
+promessa de equivalência por câmbio em tempo real. O banco ou provedor do
+comprador pode aplicar taxa de câmbio ou tarifa internacional própria.
 
 O registro do pagamento pode ser mantido e vinculado à licença para entrega,
 elegibilidade ao suporte, prevenção a fraude, contabilidade, atendimento ao
@@ -140,8 +145,10 @@ A versão aceita no checkout permanece associada à compra. Alterações relevan
 aplicam-se prospectivamente e serão comunicadas por canal adequado do produto
 ou serviço.
 
-Estes Termos seguem a legislação brasileira, sem prejuízo do foro do consumidor
-e de outros direitos obrigatórios.
+Estes Termos seguem a legislação brasileira. A versão portuguesa prevalece
+para consumidores no Brasil, e a versão inglesa prevalece para compradores
+fora do Brasil. Permanecem preservados o foro do consumidor e os direitos
+obrigatórios de seu país ou região.
 
 ## 12. Contato
 

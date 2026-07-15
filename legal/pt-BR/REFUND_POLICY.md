@@ -2,9 +2,9 @@
 
 [English](../REFUND_POLICY.md) · [Português](REFUND_POLICY.md)
 
-Última atualização: 13 de julho de 2026
+Última atualização: 15 de julho de 2026
 
-Versão do documento: `color-equalizer-refunds-2026-07-13`
+Versão do documento: `color-equalizer-refunds-2026-07-15`
 
 Vendedor: **56.442.448 MAGNO DIAS CIQUEIRA**, nome comercial **Magno Dias
 Ciqueira**, CNPJ **56.442.448/0001-10**. Endereço de atendimento: Avenida
@@ -13,13 +13,13 @@ Augusto de Lima, 233, Belo Horizonte - MG, CEP 30190-000, Brasil.
 Esta política se aplica à compra opcional de Supporter do Color Equalizer. O
 plugin continua disponível gratuitamente, e a compra remunera um benefício com
 prazo de suporte e comunicações operacionais, não o desbloqueio de recursos.
-A [Política Geral de Cancelamento e Reembolso do Vendedor](https://legal.magnociqueira.com.br/refunds/)
+A [Política Geral de Cancelamento e Reembolso do Vendedor](https://legal.magnociqueira.com.br/pt-BR/refunds/)
 também se aplica, sem reduzir os direitos específicos do produto ou os direitos
 obrigatórios descritos abaixo.
 
 ## 1. Como solicitar cancelamento ou reembolso
 
-Use o [formulário eletrônico de cancelamento](https://legal.magnociqueira.com.br/cancel/)
+Use o [formulário eletrônico de cancelamento](https://legal.magnociqueira.com.br/pt-BR/cancel/)
 ou envie uma solicitação privada para
 [tools@magnociqueira.com.br](mailto:tools@magnociqueira.com.br), informando:
 
@@ -39,6 +39,12 @@ do direito de arrependimento será tratado conforme o art. 49 do Código de
 Defesa do Consumidor e o Decreto do comércio eletrônico, incluindo o prazo
 aplicável de sete dias. Legislação obrigatória mais favorável da jurisdição do
 consumidor permanece aplicável.
+
+Para compradores fora do Brasil, não é oferecido reembolso voluntário apenas
+por mudança de preferência ou falta de uso. Permanecem preservados os direitos
+obrigatórios de arrependimento, cancelamento, garantia ou reembolso do país ou
+região do consumidor. O pagamento em moeda estrangeira não afasta esses
+direitos.
 
 Também será avaliado reembolso ou correção quando exigido por lei, inclusive em
 cobrança duplicada, pagamento não autorizado ou fraudulento, falha em prestar o

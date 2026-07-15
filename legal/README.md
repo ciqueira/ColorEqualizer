@@ -2,7 +2,7 @@
 
 [English](README.md) · [Português](pt-BR/README.md)
 
-Last updated: July 13, 2026
+Last updated: July 15, 2026
 
 These documents apply specifically to Color Equalizer and its optional
 Supporter purchase. MCNexus has separate documents for the distribution,
@@ -42,6 +42,11 @@ The general seller documents published at
 these product-specific documents. The same seller identity, applicable legal
 URLs, product description, price, and Supporter duration must be shown
 consistently at checkout and after purchase.
+
+English is the primary language of the general legal site and these product
+documents. Each English page provides a direct link to the Portuguese version.
+For consumers in Brazil, the Portuguese legal text applies as described in the
+general seller terms.
 
 These documents are an operational compliance baseline, not legal or
 accounting advice. A Brazilian lawyer and accountant should review the

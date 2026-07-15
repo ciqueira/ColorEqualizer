@@ -2,9 +2,9 @@
 
 [English](../SUPPORT_POLICY.md) · [Português](SUPPORT_POLICY.md)
 
-Última atualização: 13 de julho de 2026
+Última atualização: 15 de julho de 2026
 
-Versão do documento: `color-equalizer-support-2026-07-13`
+Versão do documento: `color-equalizer-support-2026-07-15`
 
 ## 1. Suporte comunitário gratuito
 
@@ -26,6 +26,10 @@ Prioritário significa que solicitações válidas de Supporter são triadas ant
 de perguntas comuns atendidas conforme disponibilidade. O objetivo de primeira
 resposta é de cinco dias úteis brasileiros. Esse é um objetivo de serviço, não
 prazo garantido para solução nem atendimento emergencial 24 horas.
+
+O suporte é prestado remotamente em português ou inglês. O objetivo de resposta
+considera dias úteis brasileiros e não segue o fuso horário ou feriados locais
+do comprador.
 
 ## 3. Escopo incluído
 

@@ -2,7 +2,7 @@
 
 [English](../README.md) · [Português](README.md)
 
-Última atualização: 13 de julho de 2026
+Última atualização: 15 de julho de 2026
 
 Estes documentos se aplicam especificamente ao Color Equalizer e à compra
 opcional de Supporter. O MCNexus possui documentos próprios para os serviços de
@@ -42,6 +42,10 @@ Os documentos gerais do vendedor publicados em
 estes documentos específicos do produto. A mesma identidade, URLs jurídicas,
 descrição do produto, preço e duração do Supporter devem aparecer de forma
 consistente no checkout e após a compra.
+
+O inglês é o idioma principal do site jurídico geral, com seletor visível para
+português. Para consumidores no Brasil, a versão portuguesa se aplica conforme
+os termos gerais do vendedor.
 
 Estes documentos são uma base operacional de conformidade, não aconselhamento
 jurídico ou contábil. Um advogado e um contador no Brasil devem revisar as

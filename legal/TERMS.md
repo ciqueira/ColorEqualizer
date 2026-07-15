@@ -2,9 +2,9 @@
 
 [English](TERMS.md) · [Português](pt-BR/TERMS.md)
 
-Last updated: July 13, 2026
+Last updated: July 15, 2026
 
-Document version: `color-equalizer-terms-2026-07-13-v2`
+Document version: `color-equalizer-terms-2026-07-15-v3`
 
 Seller and product developer: **56.442.448 MAGNO DIAS CIQUEIRA**, trade name
 **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Service address: Avenida
@@ -72,6 +72,11 @@ The total price, currency, available payment methods, and any applicable taxes
 are shown before confirmation. Stripe processes the payment. Color Equalizer
 and Nexus do not receive the buyer's full card number or banking credentials.
 
+One offer may display different fixed prices for each supported currency.
+These prices are configured separately and are not a promise of real-time
+exchange-rate equivalence. The buyer's bank or payment provider may apply its
+own exchange rate or international transaction fee.
+
 A payment record may be retained and linked to the relevant license for
 delivery, support eligibility, fraud prevention, accounting, consumer support,
 refunds, disputes, and legal compliance.
@@ -136,8 +141,10 @@ The version accepted at checkout remains associated with that purchase.
 Material changes apply prospectively and will be communicated through an
 appropriate product or service channel.
 
-These Terms are governed by Brazilian law. Mandatory consumer jurisdiction and
-other non-waivable rights remain unaffected.
+These Terms are governed by Brazilian law. The English version prevails for
+buyers outside Brazil, while the Portuguese version prevails for consumers in
+Brazil. Mandatory consumer jurisdiction and other non-waivable rights in the
+buyer's country or region remain unaffected.
 
 ## 12. Contact
 

@@ -2,9 +2,9 @@
 
 [English](REFUND_POLICY.md) · [Português](pt-BR/REFUND_POLICY.md)
 
-Last updated: July 13, 2026
+Last updated: July 15, 2026
 
-Document version: `color-equalizer-refunds-2026-07-13`
+Document version: `color-equalizer-refunds-2026-07-15`
 
 Seller: **56.442.448 MAGNO DIAS CIQUEIRA**, trade name **Magno Dias
 Ciqueira**, CNPJ **56.442.448/0001-10**. Service address: Avenida Augusto de
@@ -39,6 +39,11 @@ right of withdrawal will be handled in accordance with Article 49 of the
 Brazilian Consumer Protection Code and the E-commerce Decree, including the
 applicable seven-day period. More favorable mandatory law in the consumer's
 jurisdiction remains applicable.
+
+For buyers outside Brazil, no voluntary refund is offered solely because of a
+change of preference or non-use. Any mandatory withdrawal, cancellation,
+warranty, or refund right in the consumer's country or region remains fully
+preserved. Payment in a foreign currency does not waive those rights.
 
 A refund or correction will also be assessed when required by law, including
 duplicate charges, an unauthorized or fraudulent payment, failure to provide
