@@ -180,7 +180,7 @@ static void openMCNexusApp() {
 
   openExternalUrl("https://apps.microsoft.com/detail/9n1qqt1xc825?hl=en-US&gl=US");
 #else
-  openExternalUrl("https://github.com/ciqueira/MCNexus");
+  openExternalUrl("https://mcnexus.app");
 #endif
 }
 
