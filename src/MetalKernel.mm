@@ -154,14 +154,10 @@ float3 mtl_XYZ_to_Oklab(float3 xyz) {
     return mtl_mv33(mtl_LMS_to_Oklab, float3(lx, ly, lz));
 }
 
-float3 mtl_neutralize_small_oklab_chroma(float3 lab) {
-    float chroma = length(lab.yz);
-    float threshold = OKLAB_NEUTRAL_EPSILON * max(1.f, abs(lab.x));
-    if (chroma <= threshold) {
-        lab.y = 0.f;
-        lab.z = 0.f;
-    }
-    return lab;
+float mtl_oklch_neutral_weight(float3 lch) {
+    float scale = max(1.f, abs(lch.z));
+    float inner = OKLAB_NEUTRAL_EPSILON * scale;
+    return mtl_smoothstep(inner, inner * 3.f, lch.y);
 }
 
 float3 mtl_Oklab_to_XYZ(float3 lab) {
@@ -233,10 +229,10 @@ float mtl_stable_blue_selector_hue(float3 rgb, float model_hue, int input_cs) {
 float3 mtl_convert(float3 rgb, int st, bool dir, int cs) {
     if (dir) {
         if (st >= 11) {
-            float3 xyz = mtl_rgb_to_xyz(rgb, cs);
+            float3 linear_rgb = mtl_decode_transfer3(rgb, cs);
+            float3 xyz = mtl_rgb_to_xyz(linear_rgb, cs);
             if (cs == 0) xyz = mtl_adapt_xyz_d60_to_d65(xyz);
-            return mtl_OKLAB_to_OKLCH(
-                mtl_neutralize_small_oklab_chroma(mtl_XYZ_to_Oklab(xyz)));
+            return mtl_OKLAB_to_OKLCH(mtl_XYZ_to_Oklab(xyz));
         }
         if (st == 8) return mtl_RGB_to_Spherical(rgb);
         return rgb;
@@ -245,7 +241,7 @@ float3 mtl_convert(float3 rgb, int st, bool dir, int cs) {
     if (st >= 11) {
         float3 xyz = mtl_Oklab_to_XYZ(mtl_OKLCH_to_OKLAB(rgb));
         if (cs == 0) xyz = mtl_adapt_xyz_d65_to_d60(xyz);
-        return mtl_xyz_to_rgb(xyz, cs);
+        return mtl_encode_transfer3(mtl_xyz_to_rgb(xyz, cs), cs);
     }
     if (st == 8) return mtl_Spherical_to_RGB(rgb);
     return rgb;
@@ -394,18 +390,24 @@ kernel void ColorEqualizerKernel(
     float s_gain = eq.y;
     float l_delta = eq.z;
 
-    if (p_spaceType>=11 && cs.y==0.f) {
+    if (abs(h_delta)<1e-6f && abs(s_gain-1.f)<1e-6f && abs(l_delta)<1e-6f) {
         if (p_OutputPremultiplied != 0) rgb *= alpha;
         p_Output[dstIndex+0]=rgb.x; p_Output[dstIndex+1]=rgb.y;
         p_Output[dstIndex+2]=rgb.z; p_Output[dstIndex+3]=alpha;
         return;
     }
 
-    if (abs(h_delta)<1e-6f && abs(s_gain-1.f)<1e-6f && abs(l_delta)<1e-6f) {
-        if (p_OutputPremultiplied != 0) rgb *= alpha;
-        p_Output[dstIndex+0]=rgb.x; p_Output[dstIndex+1]=rgb.y;
-        p_Output[dstIndex+2]=rgb.z; p_Output[dstIndex+3]=alpha;
-        return;
+    if (p_spaceType>=11) {
+        float neutral_weight=mtl_oklch_neutral_weight(cs);
+        if (neutral_weight<=0.f) {
+            if (p_OutputPremultiplied != 0) rgb *= alpha;
+            p_Output[dstIndex+0]=rgb.x; p_Output[dstIndex+1]=rgb.y;
+            p_Output[dstIndex+2]=rgb.z; p_Output[dstIndex+3]=alpha;
+            return;
+        }
+        h_delta*=neutral_weight;
+        s_gain=1.f+(s_gain-1.f)*neutral_weight;
+        l_delta*=neutral_weight;
     }
 
     // ── Apply Adjustments ────────────────────────────────────────────────

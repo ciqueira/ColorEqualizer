@@ -200,14 +200,10 @@ __device__ float3 cu_XYZ_to_Oklab(float3 xyz) {
   return cu_mv33(cu_LMS_to_Oklab, f3_make(lx, ly, lz));
 }
 
-__device__ float3 cu_neutralize_small_oklab_chroma(float3 lab) {
-  float chroma = hypotf(lab.y, lab.z);
-  float threshold = OKLAB_NEUTRAL_EPSILON * fmaxf(1.f, fabsf(lab.x));
-  if (chroma <= threshold) {
-    lab.y = 0.f;
-    lab.z = 0.f;
-  }
-  return lab;
+__device__ float cu_oklch_neutral_weight(float3 lch) {
+  const float scale = fmaxf(1.f, fabsf(lch.z));
+  const float inner = OKLAB_NEUTRAL_EPSILON * scale;
+  return cu_smoothstep(inner, inner * 3.f, lch.y);
 }
 
 __device__ float3 cu_Oklab_to_XYZ(float3 lab) {
@@ -290,10 +286,10 @@ __device__ float cu_stable_blue_selector_hue(float3 rgb, float model_hue,
 __device__ float3 cu_convert(float3 rgb, int st, bool dir, int cs) {
   if (dir) {
     if (st >= 11) {
-      float3 xyz = cu_rgb_to_xyz(rgb, cs);
+      const float3 linear_rgb = cu_decode_transfer(rgb, cs);
+      float3 xyz = cu_rgb_to_xyz(linear_rgb, cs);
       if (cs == 0) xyz = cu_adapt_xyz_d60_to_d65(xyz);
-      return cu_OKLAB_to_OKLCH(
-          cu_neutralize_small_oklab_chroma(cu_XYZ_to_Oklab(xyz)));
+      return cu_OKLAB_to_OKLCH(cu_XYZ_to_Oklab(xyz));
     }
     if (st == 8) return cu_RGB_to_Spherical(rgb);
     return rgb;
@@ -302,7 +298,7 @@ __device__ float3 cu_convert(float3 rgb, int st, bool dir, int cs) {
   if (st >= 11) {
     float3 xyz = cu_Oklab_to_XYZ(cu_OKLCH_to_OKLAB(rgb));
     if (cs == 0) xyz = cu_adapt_xyz_d65_to_d60(xyz);
-    return cu_xyz_to_rgb(xyz, cs);
+    return cu_encode_transfer(cu_xyz_to_rgb(xyz, cs), cs);
   }
   if (st == 8) return cu_Spherical_to_RGB(rgb);
   return rgb;
@@ -455,25 +451,31 @@ __global__ void ColorEqualizerKernel(
   float s_gain = eq.y;
   float l_delta = eq.z;
 
-  if (spaceType >= 11 && cs.y == 0.f) {
-    if (p_OutputPremultiplied != 0) {
-      rgb.x *= alpha;
-      rgb.y *= alpha;
-      rgb.z *= alpha;
-    }
-    p_Output[dstIdx + 0] = rgb.x;
-    p_Output[dstIdx + 1] = rgb.y;
-    p_Output[dstIdx + 2] = rgb.z;
-    p_Output[dstIdx + 3] = alpha;
-    return;
-  }
-
   if (fabsf(h_delta) < 1e-6f && fabsf(s_gain - 1.f) < 1e-6f &&
       fabsf(l_delta) < 1e-6f) {
     if (p_OutputPremultiplied != 0) { rgb.x*=alpha; rgb.y*=alpha; rgb.z*=alpha; }
     p_Output[dstIdx+0]=rgb.x; p_Output[dstIdx+1]=rgb.y;
     p_Output[dstIdx+2]=rgb.z; p_Output[dstIdx+3]=alpha;
     return;
+  }
+
+  if (spaceType >= 11) {
+    const float neutral_weight = cu_oklch_neutral_weight(cs);
+    if (neutral_weight <= 0.f) {
+      if (p_OutputPremultiplied != 0) {
+        rgb.x *= alpha;
+        rgb.y *= alpha;
+        rgb.z *= alpha;
+      }
+      p_Output[dstIdx + 0] = rgb.x;
+      p_Output[dstIdx + 1] = rgb.y;
+      p_Output[dstIdx + 2] = rgb.z;
+      p_Output[dstIdx + 3] = alpha;
+      return;
+    }
+    h_delta *= neutral_weight;
+    s_gain = 1.f + (s_gain - 1.f) * neutral_weight;
+    l_delta *= neutral_weight;
   }
 
   // ── Apply Adjustments ────────────────────────────────────────────────

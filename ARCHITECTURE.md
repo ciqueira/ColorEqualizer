@@ -28,7 +28,8 @@
                     │ encoded RGB directly  │
                     │                       │
                     │ OKLCH: encoded RGB    │
-                    │ → XYZ D65 → Oklab     │
+                    │ → linear RGB → XYZ    │
+                    │ D65 → Oklab           │
                     │ → OKLCH               │
                     └───────────┬───────────┘
                                 │
@@ -52,7 +53,7 @@
 | `src/MetalKernel.mm` | macOS Metal pixel-processing implementation |
 | `src/CudaKernel.cu` | Windows/Linux CUDA pixel-processing implementation |
 | `src/EQParams.h` | Shared parameter layout |
-| `tests/` | Host-side numerical and regression tests |
+| `../tests/` | Shared host-side OKLCH numerical and regression tests |
 
 ## Model domains
 
@@ -64,11 +65,12 @@ by the host and is used by the OKLCH path.
 
 ### OKLCH
 
-OKLCH preserves the legacy equalizer domain and works directly on the selected
-encoded RGB signal:
+OKLCH decodes the transfer function selected by `Input Space` before applying
+the corresponding linear RGB gamut matrix:
 
 ```text
 encoded RGB
+  → scene-linear RGB
   → CIE XYZ D65
   → Oklab
   → OKLCH
@@ -79,14 +81,14 @@ encoded RGB
 
 The current implementation keeps the corrected AP1 and AWG4 matrices, modern
 GPU infrastructure, and an independent periodic Fourier-series implementation
-for the 10-band equalizer interpolation. Unlike an earlier revision, it does
-not decode OKLCH to unbounded scene-linear RGB and does not clamp OKLCH chroma
-to an arbitrary upper bound.
+for the 10-band equalizer interpolation. OKLCH chroma remains unbounded; no
+arbitrary upper chroma clamp is applied.
 
 ACES AP1 produces D60-relative XYZ, so that path applies Bradford adaptation
 from D60 to D65 before Oklab and the inverse D65-to-D60 adaptation on output.
-A small numerical threshold keeps mathematically neutral colors on the Oklab
-neutral axis.
+Near the neutral axis, corrections fade continuously between an inner protected
+region and full-strength chroma. The implementation never snaps Oklab `a` and
+`b` to zero, and the protected region bypasses the round trip exactly.
 
 ## GPU parity
 

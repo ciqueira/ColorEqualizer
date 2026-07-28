@@ -259,15 +259,11 @@ inline float3 XYZ_to_Oklab(float3 xyz) {
     return mv33(LMS_to_Oklab_mat, make_float3(lx, ly, lz));
 }
 
-inline float3 neutralize_small_oklab_chroma(float3 oklab) {
-    const float chroma = hypotf(oklab.y, oklab.z);
-    const float threshold =
-        OKLAB_NEUTRAL_EPSILON * fmaxf(1.0f, fabsf(oklab.x));
-    if (chroma <= threshold) {
-        oklab.y = 0.0f;
-        oklab.z = 0.0f;
-    }
-    return oklab;
+inline float oklch_neutral_weight(float3 oklch) {
+    const float scale = fmaxf(1.0f, fabsf(oklch.z));
+    const float inner = OKLAB_NEUTRAL_EPSILON * scale;
+    const float outer = inner * 3.0f;
+    return smoothstepf(inner, outer, oklch.y);
 }
 
 inline float3 Oklab_to_XYZ(float3 oklab) {
@@ -380,13 +376,12 @@ inline float stable_blue_selector_hue(float3 rgb, float model_hue,
 inline float3 convert_colorSpace_model(float3 rgb, int space_type, bool direction, int input_cs) {
     if (direction) {
         if (space_type >= 11) {
-            // Preserve the legacy OKLCH behavior: apply the gamut matrix
-            // directly to the host's selected encoded signal. AP1 is D60, so
-            // adapt its XYZ values to the D65 domain expected by Oklab.
-            float3 xyz   = rgb_to_xyz(rgb, input_cs);
+            // Oklab is defined from scene-linear tristimulus values. Decode the
+            // selected working-space transfer before applying its gamut matrix.
+            const float3 linear_rgb = decode_input_transfer(rgb, input_cs);
+            float3 xyz   = rgb_to_xyz(linear_rgb, input_cs);
             if (input_cs == 0) xyz = adapt_xyz_d60_to_d65(xyz);
-            float3 oklab = neutralize_small_oklab_chroma(XYZ_to_Oklab(xyz));
-            return OKLAB_to_OKLCH(oklab);
+            return OKLAB_to_OKLCH(XYZ_to_Oklab(xyz));
         }
         if (space_type == 8) return RGB_to_Spherical(rgb);
         return rgb;
@@ -395,7 +390,8 @@ inline float3 convert_colorSpace_model(float3 rgb, int space_type, bool directio
             float3 oklab = OKLCH_to_OKLAB(rgb);
             float3 xyz   = Oklab_to_XYZ(oklab);
             if (input_cs == 0) xyz = adapt_xyz_d65_to_d60(xyz);
-            return xyz_to_rgb(xyz, input_cs);
+            const float3 linear_rgb = xyz_to_rgb(xyz, input_cs);
+            return encode_input_transfer(linear_rgb, input_cs);
         }
         if (space_type == 8) return Spherical_to_RGB(rgb);
         return rgb;
@@ -590,17 +586,23 @@ inline float3 apply_equalizers_parallel(float3 rgb, int space_type, int input_cs
     float s_gain = eq.y;
     float l_delta = eq.z;
 
-    // Hue, saturation and chroma-weighted brightness cannot affect an exact
-    // OKLCH neutral. Avoid an unnecessary matrix round trip and preserve the
-    // original encoded RGB bit-for-bit.
-    if (space_type >= 11 && cs.y == 0.0f) {
-        return rgb;
-    }
-
     if (fabsf(h_delta) < 1e-6f &&
         fabsf(s_gain - 1.0f) < 1e-6f &&
         fabsf(l_delta) < 1e-6f) {
         return rgb;
+    }
+
+    // Hue is undefined at the neutral axis. Fade all OKLCH corrections in
+    // continuously instead of snapping a/b to zero, and keep the protected
+    // inner region bit-exact by bypassing the conversion round trip.
+    if (space_type >= 11) {
+        const float neutral_weight = oklch_neutral_weight(cs);
+        if (neutral_weight <= 0.0f) {
+            return rgb;
+        }
+        h_delta *= neutral_weight;
+        s_gain = 1.0f + (s_gain - 1.0f) * neutral_weight;
+        l_delta *= neutral_weight;
     }
 
     // ── Apply Adjustments ────────────────────────────────────────────────
