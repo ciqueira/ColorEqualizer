@@ -44,6 +44,20 @@
                     └───────────────────────┘
 ```
 
+Update discovery is intentionally outside this image pipeline:
+
+```text
+OFX instance/UI action
+  → shared MCOpenNex client
+  → background HTTPS manifest request
+  → immutable snapshot
+  → Support group status / Open MCNexus button
+```
+
+The first live instance starts one asynchronous check. Instances in the same
+host process share the client and its check interval. UI actions only pull the
+latest snapshot; render actions never start network work or mutate the host UI.
+
 ## Main files
 
 | File | Responsibility |
@@ -53,6 +67,8 @@
 | `src/MetalKernel.mm` | macOS Metal pixel-processing implementation |
 | `src/CudaKernel.cu` | Windows/Linux CUDA pixel-processing implementation |
 | `src/EQParams.h` | Shared parameter layout |
+| `src/MCOpenNexPresenter.*` | Pull-based update/notice presenter and shared client lifetime |
+| `src/MCOpenNexPlatform*` | Allowlisted native URL opening for MCNexus deep links and HTTPS |
 | `../tests/` | Shared host-side OKLCH numerical and regression tests |
 
 ## Model domains
