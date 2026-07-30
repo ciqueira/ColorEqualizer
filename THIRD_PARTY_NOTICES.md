@@ -3,7 +3,21 @@
 This file lists third-party material actually used by Color Equalizer. It does
 not license the project-owned code, which is governed by `LICENSE.md`.
 
-Audit date: 2026-06-20.
+Audit date: 2026-07-29.
+
+## MCOpenNex SDK
+
+Color Equalizer statically links the MCOpenNex SDK for anonymous update
+discovery and product notices.
+
+- Project: <https://github.com/ciqueira/MCOpenNex-SDK>
+- Version: `0.1.x`
+- License: Apache License 2.0
+- Used in: `src/MCOpenNexPresenter.*` and the MC OFX build wrapper.
+
+Binary distributions reproduce the MCOpenNex Apache license and NOTICE in the
+OFX bundle. MCOpenNex does not activate licenses, authorize downloads, or
+install updates.
 
 ## Oklab and OKLCH
 

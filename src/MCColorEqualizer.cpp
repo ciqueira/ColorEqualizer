@@ -15,20 +15,14 @@
 #include "MCColorEqualizer.h"
 #include "ColorMath.h"
 #include "EQParams.h"
+#include "MCOpenNexPlatform.h"
+#include "MCOpenNexPresenter.h"
 
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <string>
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <shellapi.h>
-#endif
 #include "ofxsImageEffect.h"
 #include "ofxsMultiThread.h"
 #include "ofxsProcessing.h"
@@ -62,6 +56,8 @@
 #define kParamSatMaster "satMaster"
 #define kParamLumMaster "lumMaster"
 #define kParamAboutHelp "aboutHelp"
+#define kParamUpdateStatus "updateStatus"
+#define kParamCheckUpdates "checkUpdates"
 #define kParamAppMCNexus "appMCNexus"
 
 #define kAboutHelpUrl "https://github.com/ciqueira/ColorEqualizer"
@@ -99,89 +95,15 @@ static int mapSpaceType(int uiIndex) {
   }
 }
 
-static void openExternalUrl(const char *url) {
-#ifdef _WIN32
-  ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
-#elif defined(__APPLE__)
-  std::string command = "open \"";
-  command += url;
-  command += "\" >/dev/null 2>&1";
-  std::system(command.c_str());
-#else
-  std::string command = "xdg-open \"";
-  command += url;
-  command += "\" >/dev/null 2>&1 &";
-  std::system(command.c_str());
-#endif
-}
-
 static void openMCNexusApp() {
-#ifdef __APPLE__
-  std::system(
-      "open -a MCNexus >/dev/null 2>&1 || open \"/Applications/MCNexus.app\" "
-      ">/dev/null 2>&1");
-#elif defined(_WIN32)
-  auto shellExecuteWindowsPath = [](const wchar_t *path,
-                                    const wchar_t *parameters) {
-    HINSTANCE result =
-        ShellExecuteW(nullptr, L"open", path, parameters, nullptr, SW_SHOWNORMAL);
-    return reinterpret_cast<intptr_t>(result) > 32;
-  };
-
-  auto launchPowerShellHidden = [](const wchar_t *parameters) {
-    std::wstring commandLine = L"powershell.exe ";
-    commandLine += parameters;
-
-    STARTUPINFOW startupInfo = {};
-    startupInfo.cb = sizeof(startupInfo);
-    startupInfo.dwFlags = STARTF_USESHOWWINDOW;
-    startupInfo.wShowWindow = SW_HIDE;
-
-    PROCESS_INFORMATION processInfo = {};
-    const BOOL created = CreateProcessW(
-        nullptr, &commandLine[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
-        nullptr, nullptr, &startupInfo, &processInfo);
-    if (!created) {
-      return false;
-    }
-    CloseHandle(processInfo.hThread);
-    CloseHandle(processInfo.hProcess);
-    return true;
-  };
-
-  auto launchWindowsExecutableIfExists = [&](const wchar_t *pathWithEnvironment) {
-    wchar_t expanded[MAX_PATH] = {};
-    const DWORD expandedLength =
-        ExpandEnvironmentStringsW(pathWithEnvironment, expanded, MAX_PATH);
-    const wchar_t *path =
-        (expandedLength > 0 && expandedLength < MAX_PATH) ? expanded
-                                                          : pathWithEnvironment;
-    const DWORD attributes = GetFileAttributesW(path);
-    if (attributes == INVALID_FILE_ATTRIBUTES ||
-        (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0u) {
-      return false;
-    }
-    return shellExecuteWindowsPath(path, nullptr);
-  };
-
-  if (launchWindowsExecutableIfExists(L"%ProgramFiles%\\MCNexus\\MCNexus.exe") ||
-      launchWindowsExecutableIfExists(
-          L"%ProgramFiles(x86)%\\MCNexus\\MCNexus.exe") ||
-      launchWindowsExecutableIfExists(
-          L"%LocalAppData%\\Programs\\MCNexus\\MCNexus.exe")) {
+  if (mcopen::openMCNexusApplication()) {
     return;
   }
-
-  constexpr const wchar_t *kPowerShellArgs =
-      LR"PS(-NoProfile -WindowStyle Hidden -Command "$app = Get-StartApps | Where-Object { $_.Name -eq 'MCNexus' } | Select-Object -First 1; if ($app) { Start-Process ('shell:AppsFolder\' + $app.AppID) } else { Start-Process 'https://apps.microsoft.com/detail/9n1qqt1xc825?hl=en-US&gl=US' }")PS";
-  if (launchPowerShellHidden(kPowerShellArgs)) {
+  if (mcopen::canOpenUrl("mcnexus://home") &&
+      mcopen::openUrl("mcnexus://home")) {
     return;
   }
-
-  openExternalUrl("https://apps.microsoft.com/detail/9n1qqt1xc825?hl=en-US&gl=US");
-#else
-  openExternalUrl("https://mcnexus.app");
-#endif
+  mcopen::openUrl("https://mcnexus.app");
 }
 
 // =============================================================================
@@ -333,6 +255,7 @@ private:
   void setupAndProcess(ColorEqualizerProcessor &p_Processor,
                        const OFX::RenderArguments &p_Args);
   EQParams getActiveParams(double time);
+  void refreshUpdateUi();
 
   OFX::Clip *m_SrcClip;
   OFX::Clip *m_DstClip;
@@ -352,12 +275,18 @@ private:
   // Luma
   OFX::DoubleParam *m_LumMaster;
   OFX::DoubleParam *m_Lum[10];
+
+  // MCOpenNex update presenter
+  OFX::StringParam *m_UpdateStatus;
+  std::unique_ptr<MCOpenNexPresenter> m_UpdatePresenter;
+  bool m_UpdatingSupportUi;
 };
 
 // ─── Constructor ──────────────────────────────────────────────────────────
 
 MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
-    : OFX::ImageEffect(p_Handle) {
+    : OFX::ImageEffect(p_Handle), m_UpdateStatus(nullptr),
+      m_UpdatingSupportUi(false) {
   m_DstClip = fetchClip(kOfxImageEffectOutputClipName);
   m_SrcClip = fetchClip(kOfxImageEffectSimpleSourceClipName);
 
@@ -375,17 +304,63 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   m_LumMaster = fetchDoubleParam(kParamLumMaster);
   for (int i = 0; i < 10; i++)
     m_Lum[i] = fetchDoubleParam(kLumNames[i]);
+
+  m_UpdateStatus = fetchStringParam(kParamUpdateStatus);
+
+  const OFX::ImageEffectHostDescription *host =
+      OFX::getImageEffectHostDescription();
+  std::string hostVersion;
+  const char *hostName = "";
+  if (host) {
+    hostName = host->hostName.c_str();
+    if (host->versionMajor >= 0 && host->versionMinor >= 0 &&
+        host->versionMicro >= 0) {
+      hostVersion = std::to_string(host->versionMajor) + "." +
+                    std::to_string(host->versionMinor) + "." +
+                    std::to_string(host->versionMicro);
+    }
+  }
+  m_UpdatePresenter.reset(
+      new MCOpenNexPresenter(kPluginVersion, hostName, hostVersion.c_str()));
+  m_UpdatePresenter->requestCheck(false);
+  refreshUpdateUi();
 }
 
 // ─── changedParam ─────────────────────────────────────────────────────────
 
 void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &,
                                           const std::string &p_ParamName) {
-  if (p_ParamName == kParamAboutHelp) {
-    openExternalUrl(kAboutHelpUrl);
-  } else if (p_ParamName == kParamAppMCNexus) {
-    openMCNexusApp();
+  if (m_UpdatingSupportUi || p_ParamName == kParamUpdateStatus) {
+    return;
   }
+  refreshUpdateUi();
+
+  if (p_ParamName == kParamAboutHelp) {
+    mcopen::openUrl(kAboutHelpUrl);
+  } else if (p_ParamName == kParamCheckUpdates) {
+    // Keep the last pulled result visible while the forced check runs.
+    m_UpdatePresenter->requestCheck(true);
+  } else if (p_ParamName == kParamAppMCNexus) {
+    if (!m_UpdatePresenter->openPrimaryAction()) {
+      openMCNexusApp();
+    }
+  }
+}
+
+void MCColorEqualizerPlugin::refreshUpdateUi() {
+  if (!m_UpdateStatus || !m_UpdatePresenter || m_UpdatingSupportUi) {
+    return;
+  }
+  m_UpdatingSupportUi = true;
+  const MCOpenNexPresenter::ViewState state =
+      m_UpdatePresenter->viewState();
+  try {
+    m_UpdateStatus->setValue(state.status);
+  } catch (...) {
+    m_UpdatingSupportUi = false;
+    throw;
+  }
+  m_UpdatingSupportUi = false;
 }
 
 // ─── getActiveParams ──────────────────────────────────────────────────────
@@ -668,9 +643,27 @@ void MCColorEqualizerFactory::describeInContext(
     aboutHelp->setParent(*grp);
     page->addChild(*aboutHelp);
 
+    OFX::StringParamDescriptor *updateStatus =
+        p_Desc.defineStringParam(kParamUpdateStatus);
+    updateStatus->setLabels("Updates", "Updates", "Updates");
+    updateStatus->setDefault("Update check has not run yet.");
+    updateStatus->setStringType(OFX::eStringTypeMultiLine);
+    updateStatus->setEnabled(false);
+    updateStatus->setIsPersistant(false);
+    updateStatus->setEvaluateOnChange(false);
+    updateStatus->setParent(*grp);
+    page->addChild(*updateStatus);
+
+    OFX::PushButtonParamDescriptor *checkUpdates =
+        p_Desc.definePushButtonParam(kParamCheckUpdates);
+    checkUpdates->setLabels("Check for Updates", "Check for Updates",
+                            "Check for Updates");
+    checkUpdates->setParent(*grp);
+    page->addChild(*checkUpdates);
+
     OFX::PushButtonParamDescriptor *appMCNexus =
         p_Desc.definePushButtonParam(kParamAppMCNexus);
-    appMCNexus->setLabels("App MCNexus", "App MCNexus", "App MCNexus");
+    appMCNexus->setLabels("Open MCNexus", "Open MCNexus", "Open MCNexus");
 #if !defined(__APPLE__) && !defined(_WIN32)
     appMCNexus->setEnabled(false);
 #endif
