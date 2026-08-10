@@ -29,6 +29,7 @@ created through authorized use of the plugin.
 
 The plugin may require activation through Nexus or MCNexus. A license may be
 bound to a device and is subject to its assigned activation limit.
+The current free license permits one activated computer at a time.
 
 You may move an activation between computers when the applicable deactivation
 process and activation limit allow it. Removing the plugin files or deleting a

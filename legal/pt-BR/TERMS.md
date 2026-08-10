@@ -27,7 +27,8 @@ do vendedor também se aplicam à transação comercial.
 O Color Equalizer permanece disponível gratuitamente com todos os recursos do
 plugin publicados atualmente. Uma chave gratuita válida pode ser exigida para
 ativação, download, atualização e prevenção de abuso. Obter a chave gratuita
-não cria um benefício pago de Supporter.
+não cria um benefício pago de Supporter. A licença gratuita permite uma
+ativação por vez.
 
 O repositório público é *source-available*, não software de código aberto. Os
 direitos sobre fonte e binário são definidos, respectivamente, por `LICENSE.md`

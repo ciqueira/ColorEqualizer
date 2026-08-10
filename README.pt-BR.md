@@ -100,6 +100,8 @@ Backends de processamento suportados:
 3. Ative o Color Equalizer com a chave emitida.
 4. Instale ou atualize o plugin pelo MCNexus.
 
+A licença gratuita permite uma ativação por vez.
+
 Perda de chave: o mesmo link de solicitação, aberto com a mesma conta GitHub,
 recupera a licença já emitida.
 

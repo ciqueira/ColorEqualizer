@@ -26,7 +26,7 @@ also apply to the commercial transaction.
 Color Equalizer remains available free of charge with all currently published
 plugin features. A valid free license key may be required for activation,
 download, update, and abuse prevention. Obtaining a free key does not create a
-paid Supporter benefit.
+paid Supporter benefit. The free license permits one activation at a time.
 
 The public source repository is source-available, not open-source software.
 Source and binary rights are defined respectively by `LICENSE.md` and

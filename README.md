@@ -98,6 +98,8 @@ Supported processing backends:
 3. Activate Color Equalizer with the issued key.
 4. Install or update the plugin through MCNexus.
 
+The free license permits one activation at a time.
+
 Lost key: open the same claim link with the same GitHub account to recover the
 issued license.
 
