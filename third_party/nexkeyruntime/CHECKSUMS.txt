@@ -1,0 +1,3 @@
+bfc736890420fd9e124bbd7f89fa44586792a3e8836d5fe76c46479f010dbbd4  lib/macos/libnexkeyruntime.a
+cd22c1006e6cb20ed40e7dc230ef8b504726746cf86a37efb8eb4c60815b564d  lib/windows-x64/nexkeyruntime.lib
+5a13354673c8654fe11a2706c026cd1e5ab968a84e98b56f9af2afbfe61b68fd  include/nexkeyruntime/nexkeyruntime.h
