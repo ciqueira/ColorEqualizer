@@ -237,15 +237,26 @@ private:
 #else // MC_NEXKEY_ENABLED
 
 // Licensing compiled out. allowed() is unconditionally true: a build without
-// the SDK must behave exactly as the plugin did before it existed, never
-// fail closed on an integration that is not there.
+// the SDK must behave exactly as the plugin did before it existed, never fail
+// closed on an integration that is not there.
 class License {
 public:
   void start() {}
   void shutdown() {}
   void refresh() {}
   bool allowed() const { return true; }
-  LicenseReport report() const { return LicenseReport(); }
+
+  LicenseReport report() const {
+    LicenseReport out;
+    // `allowed` MUST agree with allowed() above. The first version of this
+    // returned a default-constructed report, whose `allowed` is false, so a
+    // build with licensing compiled out rendered normally while its own UI
+    // announced "(deny)" — a diagnostic that lies is worse than none, and
+    // this one exists precisely to disambiguate why a plugin is denied.
+    out.allowed = true;
+    out.status = "not compiled in — build with NEXKEY_ROOT";
+    return out;
+  }
 };
 
 #endif // MC_NEXKEY_ENABLED
