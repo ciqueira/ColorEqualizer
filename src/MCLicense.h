@@ -16,7 +16,10 @@
 #ifndef MC_LICENSE_H
 #define MC_LICENSE_H
 
+#include <atomic>
+#include <chrono>
 #include <string>
+#include <thread>
 
 #ifdef MC_NEXKEY_ENABLED
 #include <nexkeyruntime/nexkeyruntime.h>
@@ -41,6 +44,7 @@ struct LicenseReport {
   std::string validity;     // expiry and offline window, in human terms
   std::string activation;   // activation id and seat usage
   std::string receiptsDir;
+  std::string sync;         // poller activity: how many, when, and what it said
   int receiptsFound = -1;
 
   // What the LICENSE says. In shadow mode the effect renders regardless, so
@@ -225,6 +229,16 @@ public:
     handle_ = nexkeyruntime_license_create();
     if (!handle_) return;
 
+    // Subscribing is what makes the background poller VISIBLE. Without it a
+    // sync is invisible from the outside: it rewrites the receipt on disk and
+    // nothing on screen changes until something re-reads it. The counter also
+    // proves the poller is running at all, which is otherwise only observable
+    // by waiting out syncAfter (24h) and watching network traffic.
+    //
+    // Runs on the poller thread. It records and returns — no work, no calls
+    // back into the handle, which the ABI documents as forbidden here.
+    nexkeyruntime_license_set_callback(handle_, &License::onSync, this);
+
     const std::string blob = productDataBlob();
     if (blob.empty() ||
         nexkeyruntime_license_set_product_data(handle_, blob.c_str()) !=
@@ -252,6 +266,44 @@ public:
   void refresh() {
     if (!handle_ || !configured_) return;
     nexkeyruntime_license_load_local(handle_);
+  }
+
+  // Blocking, on purpose: it is wired to a button, and the operator wants the
+  // answer before the panel refreshes. Never call it from render.
+  //
+  // Deliberately does NOT call load_local() afterwards. request_sync() already
+  // re-evaluates and then writes the seat counts the server reported; a
+  // load_local() on top rebuilds the snapshot from the receipt alone and
+  // silently throws those away, which is exactly what made the panel keep
+  // saying "seats unknown" immediately after a successful sync.
+  void syncNow() {
+    if (!handle_ || !configured_) return;
+
+    // request_sync is only synchronous when no poller exists. Once one is
+    // running — which it is, on any interactive host with a stored key — the
+    // call hands the work to that thread and returns immediately, so reading
+    // the snapshot right after shows the state from BEFORE the sync. That is
+    // what made a successful "Sync Now" still report "seats unknown".
+    //
+    // So wait for the poller to publish, bounded. The wait belongs here and
+    // not in the callback because OFX parameters may only be written from the
+    // UI thread, and the callback runs on the poller's.
+    const unsigned long before = syncCount_.load(std::memory_order_acquire);
+    const NexKeyRuntimeResult result =
+        nexkeyruntime_license_request_sync(handle_, 1);
+    manualSyncs_.fetch_add(1, std::memory_order_acq_rel);
+    lastSyncOk_.store(result == NEXKEYRUNTIME_OK, std::memory_order_release);
+
+    if (result == NEXKEYRUNTIME_OK) {
+      // ~4s ceiling: longer than a healthy round trip, short enough that a
+      // stuck backend does not appear to freeze the host's UI.
+      for (int attempt = 0; attempt < 80; ++attempt) {
+        if (syncCount_.load(std::memory_order_acquire) != before) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      }
+    }
+    lastSyncAt_.store(static_cast<long long>(std::time(nullptr)),
+                      std::memory_order_release);
   }
 
   // THE hot path. One atomic load inside the SDK, no I/O, no lock — safe to
@@ -296,6 +348,39 @@ public:
 
     out.status = statusName(snapshot.status);
     out.allowed = licenseAllows();
+
+    {
+      const unsigned long background = syncCount_.load(std::memory_order_acquire);
+      const unsigned long manual = manualSyncs_.load(std::memory_order_acquire);
+      const unsigned long count = background + manual;
+      // snapshot.last_synced_at is the SDK's own answer and is preferred, but
+      // NexKeyRuntime 0.2.0 declares that field without ever writing it — it
+      // is always 0 there. The locally observed timestamp is the fallback so
+      // this panel works against the vendored release rather than waiting for
+      // the fix to ship.
+      const long long observedAt = lastSyncAt_.load(std::memory_order_acquire);
+      const std::int64_t when =
+          snapshot.last_synced_at != 0 ? snapshot.last_synced_at
+                                       : static_cast<std::int64_t>(observedAt);
+      if (count == 0 && when == 0) {
+        out.sync = "none yet   (poller next: see Validity)";
+      } else {
+        // Counted separately because they answer different questions: manual
+        // syncs prove the network path works, background ones prove the
+        // POLLER is running, which is the part nothing else on screen shows.
+        out.sync = std::to_string(background) + " background, " +
+                   std::to_string(manual) + " manual";
+        if (when != 0) out.sync += "   last " + formatTime(when);
+        const int last = lastSyncStatus_.load(std::memory_order_acquire);
+        if (last >= 0) {
+          out.sync += "   -> ";
+          out.sync += statusName(static_cast<NexKeyRuntimeLicenseStatus>(last));
+        } else if (manual != 0) {
+          out.sync += lastSyncOk_.load(std::memory_order_acquire) ? "   -> OK"
+                                                                 : "   -> FAILED";
+        }
+      }
+    }
 
     // With no receipt there are no claims to describe, and the zeroed
     // snapshot would otherwise render as "perpetual" with a blank edition —
@@ -342,8 +427,22 @@ public:
   }
 
 private:
+  static void onSync(NexKeyRuntimeLicenseStatus status, void *userData) {
+    if (License *self = static_cast<License *>(userData)) {
+      self->syncCount_.fetch_add(1, std::memory_order_acq_rel);
+      self->lastSyncStatus_.store(static_cast<int>(status), std::memory_order_release);
+      self->lastSyncAt_.store(static_cast<long long>(std::time(nullptr)),
+                              std::memory_order_release);
+    }
+  }
+
   NexKeyRuntimeLicenseHandle *handle_ = nullptr;
   bool configured_ = false;
+  std::atomic<unsigned long> syncCount_{0};
+  std::atomic<unsigned long> manualSyncs_{0};
+  std::atomic<bool> lastSyncOk_{false};
+  std::atomic<int> lastSyncStatus_{-1};
+  std::atomic<long long> lastSyncAt_{0};
 };
 
 #else // MC_NEXKEY_ENABLED
@@ -356,6 +455,7 @@ public:
   void start() {}
   void shutdown() {}
   void refresh() {}
+  void syncNow() {}
   bool allowed() const { return true; }
 
   LicenseReport report() const {

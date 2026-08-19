@@ -69,6 +69,7 @@
 #define kParamLicenseValidity "licenseValidity"
 #define kParamLicenseActivation "licenseActivation"
 #define kParamLicensePath "licensePath"
+#define kParamLicenseSync "licenseSync"
 #define kParamLicenseRefresh "licenseRefresh"
 
 #define kAboutHelpUrl "https://github.com/ciqueira/ColorEqualizer"
@@ -368,6 +369,7 @@ private:
   OFX::StringParam *m_LicenseEdition;
   OFX::StringParam *m_LicenseValidity;
   OFX::StringParam *m_LicenseActivation;
+  OFX::StringParam *m_LicenseSync;
   OFX::StringParam *m_LicensePath;
 };
 
@@ -382,6 +384,7 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   m_LicenseEdition = fetchStringParam(kParamLicenseEdition);
   m_LicenseValidity = fetchStringParam(kParamLicenseValidity);
   m_LicenseActivation = fetchStringParam(kParamLicenseActivation);
+  m_LicenseSync = fetchStringParam(kParamLicenseSync);
   m_LicensePath = fetchStringParam(kParamLicensePath);
 
   // Off the render thread, once per instance: the signature verification and
@@ -413,6 +416,12 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &,
     openExternalUrl(kAboutHelpUrl);
   } else if (p_ParamName == kParamAppMCNexus) {
     openMCNexusApp();
+  } else if (p_ParamName == kParamLicenseSync "Btn") {
+    // Talks to the backend right now instead of waiting out syncAfter, which
+    // is 24h. This is how a suspend/revoke/edition change made on the server
+    // becomes visible in seconds during testing.
+    m_License.syncNow();
+    publishLicenseReport();
   } else if (p_ParamName == kParamLicenseRefresh) {
     // Re-reads the receipt from disk. This is what an operator presses after
     // activating in another process — the plugin has no idea that happened
@@ -501,6 +510,7 @@ void MCColorEqualizerPlugin::publishLicenseReport() {
   if (m_LicenseEdition) m_LicenseEdition->setValue(report.edition.empty() ? "-" : report.edition);
   if (m_LicenseValidity) m_LicenseValidity->setValue(report.validity.empty() ? "-" : report.validity);
   if (m_LicenseActivation) m_LicenseActivation->setValue(report.activation.empty() ? "-" : report.activation);
+  if (m_LicenseSync) m_LicenseSync->setValue(report.sync.empty() ? "-" : report.sync);
 
   if (m_LicensePath) {
     std::string text = report.receiptsDir;
@@ -853,6 +863,15 @@ void MCColorEqualizerFactory::describeInContext(
     activation->setParent(*grp);
     page->addChild(*activation);
 
+    OFX::StringParamDescriptor *sync =
+        p_Desc.defineStringParam(kParamLicenseSync);
+    sync->setLabels("Sync", "Sync", "Sync");
+    sync->setStringType(OFX::eStringTypeSingleLine);
+    sync->setEnabled(false);
+    sync->setIsPersistant(false);
+    sync->setParent(*grp);
+    page->addChild(*sync);
+
     OFX::StringParamDescriptor *path =
         p_Desc.defineStringParam(kParamLicensePath);
     path->setLabels("Receipts", "Receipts", "Receipts");
@@ -861,6 +880,12 @@ void MCColorEqualizerFactory::describeInContext(
     path->setIsPersistant(false);
     path->setParent(*grp);
     page->addChild(*path);
+
+    OFX::PushButtonParamDescriptor *syncNow =
+        p_Desc.definePushButtonParam(kParamLicenseSync "Btn");
+    syncNow->setLabels("Sync Now", "Sync Now", "Sync Now");
+    syncNow->setParent(*grp);
+    page->addChild(*syncNow);
 
     OFX::PushButtonParamDescriptor *refresh =
         p_Desc.definePushButtonParam(kParamLicenseRefresh);
