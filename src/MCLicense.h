@@ -20,8 +20,11 @@
 
 #ifdef MC_NEXKEY_ENABLED
 #include <nexkeyruntime/nexkeyruntime.h>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <ctime>
 #include <sys/stat.h>
 #if !defined(_WIN32)
 #include <dirent.h>
@@ -34,12 +37,33 @@ namespace mc {
 // only consumers are a read-only parameter and a human reading it off screen.
 struct LicenseReport {
   std::string status = "disabled";
+  std::string edition;      // the label the certificate carries: demo/trial/full/...
+  std::string validity;     // expiry and offline window, in human terms
+  std::string activation;   // activation id and seat usage
   std::string receiptsDir;
   int receiptsFound = -1;
+
+  // What the LICENSE says. In shadow mode the effect renders regardless, so
+  // this is a report, not necessarily what happened — `enforcing` says which.
   bool allowed = false;
+  bool enforcing = false;
 };
 
 #ifdef MC_NEXKEY_ENABLED
+
+// Shadow mode (Fase 7: "shadow mode e depois enforcement por coorte").
+//
+// OFF by default while the integration is being validated: the plugin reads
+// the license, reports it in full, and renders the effect either way. That is
+// what lets a whole matrix be exercised — demo to trial to full, suspend,
+// revoke, seat limits — without the image disappearing every time the answer
+// is "deny" and without the tester having to guess whether a black frame
+// meant a licensing verdict or a bug.
+//
+// Build with -DMC_NEXKEY_ENFORCE=1 to make the render guard bite.
+#ifndef MC_NEXKEY_ENFORCE
+#define MC_NEXKEY_ENFORCE 0
+#endif
 
 // The tenant and entitlement this build is licensed under. Both are
 // compile-time for a reason: a plugin that could be pointed at another
@@ -83,6 +107,33 @@ inline std::string productDataBlob() {
   }
   return std::string();
 #endif
+}
+
+inline const char *editionName(NexKeyRuntimeEdition edition) {
+  switch (edition) {
+    case NEXKEYRUNTIME_EDITION_DEMO: return "demo";
+    case NEXKEYRUNTIME_EDITION_TRIAL: return "trial";
+    case NEXKEYRUNTIME_EDITION_BETA: return "beta";
+    case NEXKEYRUNTIME_EDITION_FULL: return "full";
+    case NEXKEYRUNTIME_EDITION_UNKNOWN: break;
+  }
+  return "UNKNOWN";
+}
+
+inline std::string formatTime(std::int64_t unixSeconds) {
+  if (unixSeconds <= 0) return "-";
+  const std::time_t raw = static_cast<std::time_t>(unixSeconds);
+  std::tm parts{};
+#if defined(_WIN32)
+  localtime_s(&parts, &raw);
+#else
+  localtime_r(&raw, &parts);
+#endif
+  char buffer[32];
+  if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", &parts) == 0) {
+    return "-";
+  }
+  return std::string(buffer);
 }
 
 inline const char *statusName(NexKeyRuntimeLicenseStatus status) {
@@ -205,14 +256,32 @@ public:
 
   // THE hot path. One atomic load inside the SDK, no I/O, no lock — safe to
   // call per frame.
+  //
+  // In shadow mode this is compiled down to a constant true and the SDK is
+  // not consulted at all, so the render path costs exactly what it did before
+  // licensing existed.
   bool allowed() const {
+#if MC_NEXKEY_ENFORCE
     if (!handle_) return true; // licensing not compiled in: never gate
+    return nexkeyruntime_license_render_decision(handle_) ==
+           NEXKEYRUNTIME_RENDER_ALLOW;
+#else
+    return true;
+#endif
+  }
+
+  // The verdict the license actually carries, regardless of whether it is
+  // being enforced. This is what the UI shows; allowed() is what the render
+  // path obeys. They differ on purpose in shadow mode, and the UI says so.
+  bool licenseAllows() const {
+    if (!handle_) return true;
     return nexkeyruntime_license_render_decision(handle_) ==
            NEXKEYRUNTIME_RENDER_ALLOW;
   }
 
   LicenseReport report() const {
     LicenseReport out;
+    out.enforcing = MC_NEXKEY_ENFORCE ? true : false;
     out.receiptsDir = receiptsDirectory();
     out.receiptsFound = countReceipts(out.receiptsDir);
     if (!handle_) { out.status = "no handle"; return out; }
@@ -220,12 +289,55 @@ public:
 
     NexKeyRuntimeLicenseSnapshot snapshot{};
     snapshot.struct_size = sizeof(snapshot);
-    if (nexkeyruntime_license_get_snapshot(handle_, &snapshot) == NEXKEYRUNTIME_OK) {
-      out.status = statusName(snapshot.status);
-    } else {
+    if (nexkeyruntime_license_get_snapshot(handle_, &snapshot) != NEXKEYRUNTIME_OK) {
       out.status = "no snapshot";
+      return out;
     }
-    out.allowed = allowed();
+
+    out.status = statusName(snapshot.status);
+    out.allowed = licenseAllows();
+
+    // With no receipt there are no claims to describe, and the zeroed
+    // snapshot would otherwise render as "perpetual" with a blank edition —
+    // a licence that does not exist reading as one that never expires.
+    if (snapshot.activation_id[0] == '\0') {
+      out.edition = "-";
+      out.validity = "-";
+      out.activation = "-";
+      return out;
+    }
+
+    // The edition label is shown verbatim next to the enum the SDK mapped it
+    // to. They are printed separately on purpose: the SDK never interprets
+    // the label (§3.7.2), so a tenant introducing an edition this build has
+    // not heard of shows its real name with UNKNOWN beside it, rather than
+    // being silently flattened into an existing one.
+    out.edition = snapshot.edition[0] ? snapshot.edition : "(none)";
+    out.edition += "  [";
+    out.edition += editionName(snapshot.edition_enum);
+    out.edition += "]";
+
+    out.validity = snapshot.expires_at == 0
+                       ? std::string("perpetual")
+                       : (formatTime(snapshot.expires_at) + "  (" +
+                          std::to_string(snapshot.days_remaining) + " day(s) left)");
+    if (snapshot.offline_valid_until != 0) {
+      out.validity += "   offline until " + formatTime(snapshot.offline_valid_until);
+    }
+    if (snapshot.sync_after != 0) {
+      out.validity += "   next sync " + formatTime(snapshot.sync_after);
+    }
+
+    out.activation = snapshot.activation_id[0] ? snapshot.activation_id : "(none)";
+    if (snapshot.max_activations > 0) {
+      out.activation += "   seats " + std::to_string(snapshot.activations_used) +
+                        "/" + std::to_string(snapshot.max_activations);
+    } else {
+      // Seat counts come from the server and are not in the receipt, so a
+      // local read genuinely does not know them. "0/0" would read as "no
+      // seats in use", which is wrong and alarming.
+      out.activation += "   seats unknown (sync to refresh)";
+    }
     return out;
   }
 
@@ -254,6 +366,7 @@ public:
     // announced "(deny)" — a diagnostic that lies is worse than none, and
     // this one exists precisely to disambiguate why a plugin is denied.
     out.allowed = true;
+    out.enforcing = false;
     out.status = "not compiled in — build with NEXKEY_ROOT";
     return out;
   }

@@ -65,6 +65,9 @@
 #define kParamAboutHelp "aboutHelp"
 #define kParamAppMCNexus "appMCNexus"
 #define kParamLicenseStatus "licenseStatus"
+#define kParamLicenseEdition "licenseEdition"
+#define kParamLicenseValidity "licenseValidity"
+#define kParamLicenseActivation "licenseActivation"
 #define kParamLicensePath "licensePath"
 #define kParamLicenseRefresh "licenseRefresh"
 
@@ -362,6 +365,9 @@ private:
   void publishLicenseReport();
   mc::License m_License;
   OFX::StringParam *m_LicenseStatus;
+  OFX::StringParam *m_LicenseEdition;
+  OFX::StringParam *m_LicenseValidity;
+  OFX::StringParam *m_LicenseActivation;
   OFX::StringParam *m_LicensePath;
 };
 
@@ -373,6 +379,9 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   m_SrcClip = fetchClip(kOfxImageEffectSimpleSourceClipName);
 
   m_LicenseStatus = fetchStringParam(kParamLicenseStatus);
+  m_LicenseEdition = fetchStringParam(kParamLicenseEdition);
+  m_LicenseValidity = fetchStringParam(kParamLicenseValidity);
+  m_LicenseActivation = fetchStringParam(kParamLicenseActivation);
   m_LicensePath = fetchStringParam(kParamLicensePath);
 
   // Off the render thread, once per instance: the signature verification and
@@ -477,9 +486,22 @@ bool MCColorEqualizerPlugin::isIdentity(const OFX::IsIdentityArguments &p_Args,
 // after construction and from the Refresh button — never from render.
 void MCColorEqualizerPlugin::publishLicenseReport() {
   const mc::LicenseReport report = m_License.report();
+
   if (m_LicenseStatus) {
-    m_LicenseStatus->setValue(report.status + (report.allowed ? " (allow)" : " (deny)"));
+    std::string text = report.status;
+    text += report.allowed ? "  (allow)" : "  (deny)";
+    // Say it plainly when the verdict is not being acted on. Otherwise a
+    // tester reads "deny" while the effect keeps rendering and reasonably
+    // concludes the guard is broken.
+    if (!report.enforcing) {
+      text += report.allowed ? "  — shadow mode" : "  — shadow mode, effect STILL APPLIED";
+    }
+    m_LicenseStatus->setValue(text);
   }
+  if (m_LicenseEdition) m_LicenseEdition->setValue(report.edition.empty() ? "-" : report.edition);
+  if (m_LicenseValidity) m_LicenseValidity->setValue(report.validity.empty() ? "-" : report.validity);
+  if (m_LicenseActivation) m_LicenseActivation->setValue(report.activation.empty() ? "-" : report.activation);
+
   if (m_LicensePath) {
     std::string text = report.receiptsDir;
     if (text.empty()) {
@@ -803,6 +825,33 @@ void MCColorEqualizerFactory::describeInContext(
     status->setIsPersistant(false);  // recomputed on load; never saved in the project
     status->setParent(*grp);
     page->addChild(*status);
+
+    OFX::StringParamDescriptor *edition =
+        p_Desc.defineStringParam(kParamLicenseEdition);
+    edition->setLabels("Edition", "Edition", "Edition");
+    edition->setStringType(OFX::eStringTypeSingleLine);
+    edition->setEnabled(false);
+    edition->setIsPersistant(false);
+    edition->setParent(*grp);
+    page->addChild(*edition);
+
+    OFX::StringParamDescriptor *validity =
+        p_Desc.defineStringParam(kParamLicenseValidity);
+    validity->setLabels("Validity", "Validity", "Validity");
+    validity->setStringType(OFX::eStringTypeSingleLine);
+    validity->setEnabled(false);
+    validity->setIsPersistant(false);
+    validity->setParent(*grp);
+    page->addChild(*validity);
+
+    OFX::StringParamDescriptor *activation =
+        p_Desc.defineStringParam(kParamLicenseActivation);
+    activation->setLabels("Activation", "Activation", "Activation");
+    activation->setStringType(OFX::eStringTypeSingleLine);
+    activation->setEnabled(false);
+    activation->setIsPersistant(false);
+    activation->setParent(*grp);
+    page->addChild(*activation);
 
     OFX::StringParamDescriptor *path =
         p_Desc.defineStringParam(kParamLicensePath);
