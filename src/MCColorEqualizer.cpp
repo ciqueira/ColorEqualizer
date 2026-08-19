@@ -15,6 +15,7 @@
 #include "MCColorEqualizer.h"
 #include "ColorMath.h"
 #include "EQParams.h"
+#include "MCLicense.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -63,6 +64,9 @@
 #define kParamLumMaster "lumMaster"
 #define kParamAboutHelp "aboutHelp"
 #define kParamAppMCNexus "appMCNexus"
+#define kParamLicenseStatus "licenseStatus"
+#define kParamLicensePath "licensePath"
+#define kParamLicenseRefresh "licenseRefresh"
 
 #define kAboutHelpUrl "https://github.com/ciqueira/ColorEqualizer"
 
@@ -333,6 +337,7 @@ private:
   void setupAndProcess(ColorEqualizerProcessor &p_Processor,
                        const OFX::RenderArguments &p_Args);
   EQParams getActiveParams(double time);
+  static EQParams neutralParams();
 
   OFX::Clip *m_SrcClip;
   OFX::Clip *m_DstClip;
@@ -352,6 +357,12 @@ private:
   // Luma
   OFX::DoubleParam *m_LumMaster;
   OFX::DoubleParam *m_Lum[10];
+
+  // Licensing (Perfil A — read only, never activates: D15)
+  void publishLicenseReport();
+  mc::License m_License;
+  OFX::StringParam *m_LicenseStatus;
+  OFX::StringParam *m_LicensePath;
 };
 
 // ─── Constructor ──────────────────────────────────────────────────────────
@@ -360,6 +371,14 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
     : OFX::ImageEffect(p_Handle) {
   m_DstClip = fetchClip(kOfxImageEffectOutputClipName);
   m_SrcClip = fetchClip(kOfxImageEffectSimpleSourceClipName);
+
+  m_LicenseStatus = fetchStringParam(kParamLicenseStatus);
+  m_LicensePath = fetchStringParam(kParamLicensePath);
+
+  // Off the render thread, once per instance: the signature verification and
+  // the disk reads all happen here so render() only ever does an atomic load.
+  m_License.start();
+  publishLicenseReport();
 
   m_InputCS = fetchChoiceParam(kParamInputCS);
   m_SpaceType = fetchChoiceParam(kParamSpaceType);
@@ -385,6 +404,12 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &,
     openExternalUrl(kAboutHelpUrl);
   } else if (p_ParamName == kParamAppMCNexus) {
     openMCNexusApp();
+  } else if (p_ParamName == kParamLicenseRefresh) {
+    // Re-reads the receipt from disk. This is what an operator presses after
+    // activating in another process — the plugin has no idea that happened
+    // until something tells it to look again.
+    m_License.refresh();
+    publishLicenseReport();
   }
 }
 
@@ -432,7 +457,58 @@ void MCColorEqualizerPlugin::render(const OFX::RenderArguments &p_Args) {
 bool MCColorEqualizerPlugin::isIdentity(const OFX::IsIdentityArguments &p_Args,
                                         OFX::Clip *&p_IdentityClip,
                                         double &p_IdentityTime) {
+  // Tell the host up front that a denied instance does nothing, so it can
+  // skip the effect entirely instead of running a GPU pass that writes the
+  // input back out. setupAndProcess() keeps its own guard regardless: this
+  // is an optimisation, and a host that ignores isIdentity must still not
+  // get the effect applied.
+  if (!m_License.allowed()) {
+    p_IdentityClip = m_SrcClip;
+    p_IdentityTime = p_Args.time;
+    return true;
+  }
   return false;
+}
+
+// The values every control sits at when it is doing nothing. Not a zeroed
+// struct: this effect's neutral is 1.0 on every master and on sat/lum, and
+// 0.0 only on hue offsets (EQParams.h).
+// Copies the SDK's view of the world into the two display parameters. Called
+// after construction and from the Refresh button — never from render.
+void MCColorEqualizerPlugin::publishLicenseReport() {
+  const mc::LicenseReport report = m_License.report();
+  if (m_LicenseStatus) {
+    m_LicenseStatus->setValue(report.status + (report.allowed ? " (allow)" : " (deny)"));
+  }
+  if (m_LicensePath) {
+    std::string text = report.receiptsDir;
+    if (text.empty()) {
+      text = "(unresolved)";
+    } else if (report.receiptsFound < 0) {
+      text += "  [unreadable]";
+    } else {
+      char suffix[32];
+      std::snprintf(suffix, sizeof(suffix), "  [%d receipt(s)]", report.receiptsFound);
+      text += suffix;
+    }
+    m_LicensePath->setValue(text);
+  }
+}
+
+EQParams MCColorEqualizerPlugin::neutralParams() {
+  EQParams params;
+  std::memset(&params, 0, sizeof(params));
+  params.inputCS = 0;
+  params.spaceType = -1;
+  params.hueMaster = 1.0f;
+  params.satMaster = 1.0f;
+  params.lumMaster = 1.0f;
+  for (int band = 0; band < 10; ++band) {
+    params.hueVals[band] = 0.0f;
+    params.satVals[band] = 1.0f;
+    params.lumVals[band] = 1.0f;
+  }
+  return params;
 }
 
 // ─── setupAndProcess ──────────────────────────────────────────────────────
@@ -455,7 +531,28 @@ void MCColorEqualizerPlugin::setupAndProcess(
     OFX::throwSuiteStatusException(kOfxStatErrValue);
   }
 
-  EQParams params = getActiveParams(p_Args.time);
+  // The render guard (§7.3). One atomic load inside the SDK — no I/O, no
+  // lock, no verification work — because this runs per frame and per tile.
+  // Everything expensive already happened when the instance was constructed.
+  //
+  // Policy on DENY is passthrough, expressed as NEUTRAL PARAMETERS rather
+  // than as a separate code path: the same GPU kernel runs and writes the
+  // input straight through. Doing it this way means the denied path is
+  // exercised by every render, not by a branch that only runs for
+  // unlicensed users and therefore never gets tested.
+  //
+  // Deliberately NOT an error. Throwing here would abort the host's render
+  // and could cost a colourist their work over a licensing state they might
+  // fix in thirty seconds; a colour tool that quietly does nothing is the
+  // least destructive failure available.
+  //
+  // Fase 7 replaces this with a visible watermark, which needs a `denied`
+  // flag threaded into RunMetalKernel/RunCudaKernel and a stripe composited
+  // there. That is GPU work this build has not done; until then the license
+  // state is read off the plugin's own parameters, which is unambiguous in
+  // a way a silent passthrough is not.
+  EQParams params = m_License.allowed() ? getActiveParams(p_Args.time)
+                                        : neutralParams();
 
   p_Processor.setDstImg(dst.get());
   p_Processor.setSrcImg(src.get());
@@ -676,6 +773,51 @@ void MCColorEqualizerFactory::describeInContext(
 #endif
     appMCNexus->setParent(*grp);
     page->addChild(*appMCNexus);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // Group: License
+  // ════════════════════════════════════════════════════════════════════
+  //
+  // These two read-only fields are the instrument P11 is run with. The
+  // question that item asks is whether a receipt written OUTSIDE the host is
+  // found by this plugin INSIDE it — and a sandboxed DaVinci Resolve silently
+  // redirects ~/Library/Application Support into its own container, so the
+  // answer shows up as a different path here than the one nexkeyctl printed
+  // (§3.12).
+  //
+  // Without them a denied plugin just looks inert, which is indistinguishable
+  // from "not activated", "wrong entitlement", "bad ProductData" and
+  // "sandbox redirected storage" — the one thing the test needs to tell apart.
+  {
+    OFX::GroupParamDescriptor *grp = p_Desc.defineGroupParam("grpLicense");
+    grp->setLabels("License", "License", "License");
+    grp->setOpen(false);
+    page->addChild(*grp);
+
+    OFX::StringParamDescriptor *status =
+        p_Desc.defineStringParam(kParamLicenseStatus);
+    status->setLabels("Status", "Status", "Status");
+    status->setStringType(OFX::eStringTypeSingleLine);
+    status->setEnabled(false);       // display only
+    status->setIsPersistant(false);  // recomputed on load; never saved in the project
+    status->setParent(*grp);
+    page->addChild(*status);
+
+    OFX::StringParamDescriptor *path =
+        p_Desc.defineStringParam(kParamLicensePath);
+    path->setLabels("Receipts", "Receipts", "Receipts");
+    path->setStringType(OFX::eStringTypeSingleLine);
+    path->setEnabled(false);
+    path->setIsPersistant(false);
+    path->setParent(*grp);
+    page->addChild(*path);
+
+    OFX::PushButtonParamDescriptor *refresh =
+        p_Desc.definePushButtonParam(kParamLicenseRefresh);
+    refresh->setLabels("Refresh License", "Refresh License", "Refresh License");
+    refresh->setParent(*grp);
+    page->addChild(*refresh);
   }
 }
 
