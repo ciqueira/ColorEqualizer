@@ -1,15 +1,15 @@
-# NexKeyRuntime 0.2.3 (vendored)
+# NexKeyRuntime 0.3.0 (vendored)
 
 Binaries and headers copied verbatim from the published release so this
 repository builds with `make clean && make` and no external directory:
 
-<https://github.com/ciqueira/NexKeyRuntime/releases/tag/v0.2.3>
+<https://github.com/ciqueira/NexKeyRuntime/releases/tag/v0.3.0>
 
 | File | Source archive |
 |---|---|
-| `include/nexkeyruntime/*` | `nexkeyruntime-0.2.3-macos-universal.zip` |
-| `lib/macos/libnexkeyruntime.a` | `nexkeyruntime-0.2.3-macos-universal.zip` |
-| `lib/windows-x64/nexkeyruntime.lib` | `nexkeyruntime-0.2.3-windows-x64.zip` |
+| `include/nexkeyruntime/*` | `nexkeyruntime-0.3.0-macos-universal.zip` |
+| `lib/macos/libnexkeyruntime.a` | `nexkeyruntime-0.3.0-macos-universal.zip` |
+| `lib/windows-x64/nexkeyruntime.lib` | `nexkeyruntime-0.3.0-windows-x64.zip` |
 
 The headers are taken from the macOS archive. Both archives carry the same
 header content; the Windows one only differs in line endings, because
