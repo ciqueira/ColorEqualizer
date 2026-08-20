@@ -80,6 +80,19 @@ struct LicenseReport {
 #define MC_NEXKEY_VARIANT "download:default"
 #endif
 
+// What this program calls itself when it talks to the gateway. NOT the same
+// thing as the tenant or the entitlement above: those say which licence is
+// being checked, this says who is doing the checking.
+//
+// It matters because an activation is shared. MCNexus activates the licence
+// and this plugin validates and syncs against the same record, so without a
+// name attached each one's version overwrites the other's and the server
+// cannot say which plugin build is deployed. Purely reported — nothing in the
+// licensing decision reads it.
+#ifndef MC_NEXKEY_PRODUCT
+#define MC_NEXKEY_PRODUCT "colorequalizer"
+#endif
+
 // The signed ProductData blob, normally baked in at build time
 // (-DMC_NEXKEY_PRODUCT_DATA="..."). While validating, an env var is allowed
 // so the same binary can be pointed at staging and production blobs without
@@ -249,6 +262,10 @@ public:
     nexkeyruntime_license_set_tenant_id(handle_, MC_NEXKEY_TENANT);
     nexkeyruntime_license_set_variant(handle_, MC_NEXKEY_VARIANT);
     nexkeyruntime_license_set_metadata(handle_, "appVersion", PLUGIN_VERSION);
+    // Ignored by SDKs older than 0.4.0, which accept unknown metadata keys
+    // rather than rejecting them — so this is safe to set regardless of which
+    // vendored runtime this build links.
+    nexkeyruntime_license_set_metadata(handle_, "product", MC_NEXKEY_PRODUCT);
     configured_ = true;
     refresh();
   }
