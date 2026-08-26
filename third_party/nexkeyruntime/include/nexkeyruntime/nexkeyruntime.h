@@ -26,9 +26,9 @@ extern "C" {
    equals NEXKEYRUNTIME_VERSION_STRING), and this header ships as SOURCE in the
    public repository rather than as a build artifact. */
 #define NEXKEYRUNTIME_VERSION_MAJOR 0
-#define NEXKEYRUNTIME_VERSION_MINOR 4
+#define NEXKEYRUNTIME_VERSION_MINOR 5
 #define NEXKEYRUNTIME_VERSION_PATCH 0
-#define NEXKEYRUNTIME_VERSION_STRING "0.4.0"
+#define NEXKEYRUNTIME_VERSION_STRING "0.5.0"
 
 #define NEXKEYRUNTIME_VERSION_CAPACITY 64
 #define NEXKEYRUNTIME_ID_CAPACITY 160
@@ -338,7 +338,7 @@ NEXKEYRUNTIME_API NexKeyRuntimeResult nexkeyruntime_license_set_variant(
 
 /* ===== BLOCO A — VERIFY: the four (after create/destroy) every OFX
    uses. A plugin that never calls anything below this point is,
-   by construction, Perfil A/read-only — see §7.7. ===== */
+   by construction, Profile A/read-only — see §7.7. ===== */
 NEXKEYRUNTIME_API NexKeyRuntimeResult nexkeyruntime_license_load_local(
   NexKeyRuntimeLicenseHandle *handle
 );
@@ -352,8 +352,8 @@ NEXKEYRUNTIME_API NexKeyRuntimeRenderDecision nexkeyruntime_license_render_decis
   const NexKeyRuntimeLicenseHandle *handle
 );
 
-/* ===== BLOCO B — ACTIVATE: MCNexus (Perfil A) or the app itself
-   (Perfil B). A plugin that only validates never calls these (D15). ===== */
+/* ===== BLOCO B — ACTIVATE: MCNexus (Profile A) or the app itself
+   (Profile B). A plugin that only validates never calls these (D15). ===== */
 NEXKEYRUNTIME_API NexKeyRuntimeResult nexkeyruntime_license_set_license_key(
   NexKeyRuntimeLicenseHandle *handle,
   const char *key
@@ -372,6 +372,54 @@ NEXKEYRUNTIME_API NexKeyRuntimeResult nexkeyruntime_license_deactivate(
 NEXKEYRUNTIME_API NexKeyRuntimeResult nexkeyruntime_license_publish_receipt(
   NexKeyRuntimeLicenseHandle *handle,
   const char *certificate
+);
+
+/* Writes a small JSON request file that lets someone else issue this
+   machine an activation certificate without this machine ever reaching the
+   network — the usual reason is that the normal activation channel is
+   unreachable (backend down, install intentionally air-gapped). The file
+   carries this machine's binding (derived from the tenant id and the
+   hardware id, never the hardware id itself), the entitlement and a short
+   prefix of the license key already configured on this handle, and nothing
+   else — it is not a secret and is not signed by this machine, which holds
+   no key to sign with.
+
+   Requires set_product_data/set_product_file and set_tenant_id to have
+   already succeeded (same precondition as load_local()); overwrites `path`
+   if it exists. Fails with NEXKEYRUNTIME_INVALID_CONFIG if that
+   precondition is not met, NEXKEYRUNTIME_INTERNAL_ERROR if the hardware id
+   cannot be read (the same condition load_local() reports the same way),
+   or NEXKEYRUNTIME_E_STORAGE if `path` cannot be written.
+
+   Whatever comes back in response to this file is a certificate — hand it
+   to publish_receipt(), not to this function. */
+NEXKEYRUNTIME_API NexKeyRuntimeResult nexkeyruntime_license_export_activation_request(
+  NexKeyRuntimeLicenseHandle *handle,
+  const char *path
+);
+
+/* The other half of the offline round trip: gives up this machine's licence
+   and writes the proof of it to `path`, without touching the network.
+
+   Order matters and is not configurable: the local receipts are deleted
+   FIRST, and only then is the proof written. That is what makes the proof
+   trustworthy without a signature — this machine holds no key to sign with,
+   and forging the file gains the forger nothing, because their own copy has
+   already stopped working. Whoever receives the file releases the seat on
+   the strength of that.
+
+   Deleting the receipts is the part that must not fail silently: if they
+   survive, the machine keeps rendering while its seat is handed back, which
+   is the one outcome this ordering exists to prevent. A failure to write the
+   proof afterwards is recoverable (call again, or release the seat by hand);
+   a failure to stop rendering is not.
+
+   Same preconditions as export_activation_request(). Returns
+   NEXKEYRUNTIME_E_NO_RECEIPT when there was nothing to give up — the machine
+   was not activated, so there is no seat to release and no proof to write. */
+NEXKEYRUNTIME_API NexKeyRuntimeResult nexkeyruntime_license_export_deactivation_proof(
+  NexKeyRuntimeLicenseHandle *handle,
+  const char *path
 );
 
 /* ===== BLOCO C — SYNC: automatic once Fase 4B's poller runs; forcing
