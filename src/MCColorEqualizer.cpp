@@ -43,7 +43,16 @@
 #endif
 
 #define kPluginName "Color Equalizer"
+// A staging build carries the tag in the name the host displays. If one of
+// these ever reaches a workstation it should not take an investigation to
+// find out — the plugin says so in the effect list, before anyone opens it.
+// Driven by the ProductData blob the build baked in, so it cannot disagree
+// with the backend this binary actually talks to.
+#if defined(MC_NEXKEY_STAGING) && MC_NEXKEY_STAGING
+#define kPluginNameLabel "Color Equalizer " kPluginVersion " (staging)"
+#else
 #define kPluginNameLabel "Color Equalizer " kPluginVersion
+#endif
 #define kPluginGrouping "MC Plugins"
 #define kPluginDescription                                                     \
   "10-Band Color Equalizer with Hue, Saturation and Brightness controls. "     \

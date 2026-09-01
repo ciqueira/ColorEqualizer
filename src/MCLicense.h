@@ -60,16 +60,21 @@ struct LicenseReport {
 
 #ifdef MC_NEXKEY_ENABLED
 
-// Shadow mode (Fase 7: "shadow mode e depois enforcement por coorte").
+// Enforcement — ON by default since the integration was validated in a real
+// host (01/09). The build system defines this; the fallback below only
+// applies to a translation unit compiled without it.
 //
-// OFF by default while the integration is being validated: the plugin reads
-// the license, reports it in full, and renders the effect either way. That is
+// Shadow mode is the opposite build (`make NEXKEY_SHADOW=1`): the plugin still
+// reads the license and reports it in full, but renders either way. That is
 // what lets a whole matrix be exercised — demo to trial to full, suspend,
 // revoke, seat limits — without the image disappearing every time the answer
-// is "deny" and without the tester having to guess whether a black frame
-// meant a licensing verdict or a bug.
+// is "deny" and without the tester having to guess whether a black frame meant
+// a licensing verdict or a bug.
 //
-// Build with -DMC_NEXKEY_ENFORCE=1 to make the render guard bite.
+// The default is enforcing because the two mistakes do not cost the same:
+// shipping without enforcement fails silently and is found by whoever uses the
+// plugin unlicensed, while shipping with it when you wanted shadow fails on
+// the first frame you look at.
 #ifndef MC_NEXKEY_ENFORCE
 #define MC_NEXKEY_ENFORCE 0
 #endif
