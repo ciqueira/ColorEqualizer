@@ -276,6 +276,10 @@ public:
   }
 
   void shutdown() {
+    // Ours first, the SDK's second. syncWorker_ calls into the handle, so
+    // destroying the handle while it runs is a use-after-free — and destroy()
+    // only ever joins the SDK's own poller, never a thread this file started.
+    if (syncWorker_.joinable()) syncWorker_.join();
     if (!handle_) return;
     // Returns only once the SDK's background thread has been joined, so the
     // host may unload this bundle the moment it returns.
@@ -288,6 +292,44 @@ public:
   void refresh() {
     if (!handle_ || !configured_) return;
     nexkeyruntime_license_load_local(handle_);
+    lastLocalReadAt_.store(static_cast<long long>(std::time(nullptr)),
+                           std::memory_order_release);
+  }
+
+  // The same re-read, rate limited — what every parameter change calls.
+  //
+  // WHY THIS EXISTS. Deactivation happens in another process: MCNexus calls
+  // deactivate(), which asks the server, then deletes this tenant's receipt
+  // AND the stored licence key. Nothing tells this plugin. Two mechanisms
+  // could have noticed and neither does:
+  //
+  //   - the background poller stops. With no key it has nothing to sync with,
+  //     so it takes the `defaultIntervalMs` branch and sleeps 24h. Its own
+  //     comment identifies the cause ("the stored key went away — a
+  //     deactivate, most likely") and then does nothing with it;
+  //   - nothing re-reads the receipt. load_local() only runs when called, so
+  //     the ACTIVE snapshot stays frozen in memory — and that snapshot is
+  //     what the render guard consults.
+  //
+  // Measured: ten minutes after the receipt and key were deleted, with zero
+  // receipts on disk, the handle still reported ACTIVE and the effect still
+  // rendered. Not slow — it never converged, and would not have in 24h.
+  //
+  // So the plugin re-reads on its own. Any parameter change is enough, which
+  // means a colourist touching any control converges within one gesture
+  // instead of never. The throttle is there because dragging a slider emits a
+  // change per movement and each read costs a file read plus an Ed25519
+  // verification — small, but not free at frame rate.
+  void refreshIfStale(int minimumIntervalSeconds = 3) {
+    if (!handle_ || !configured_) return;
+    const long long now = static_cast<long long>(std::time(nullptr));
+    const long long last = lastLocalReadAt_.load(std::memory_order_acquire);
+    // A clock that went backwards must not freeze the re-read forever, which
+    // `now - last < interval` alone would do for a negative difference.
+    if (last != 0 && now >= last && now - last < minimumIntervalSeconds) {
+      return;
+    }
+    refresh();
   }
 
   // Blocking, on purpose: it is wired to a button, and the operator wants the
@@ -326,6 +368,48 @@ public:
     }
     lastSyncAt_.store(static_cast<long long>(std::time(nullptr)),
                       std::memory_order_release);
+  }
+
+  // What the shipped "Refresh License" button calls. Fire and forget: returns
+  // immediately, reports nothing, shows nothing. The panel it used to refresh
+  // does not exist any more — MCNexus is where licence state is read — so the
+  // ~4s wait above has nothing left to wait FOR, and all it would still do is
+  // freeze the host's UI thread for four seconds.
+  //
+  // A thread of our own rather than trusting request_sync to be async:
+  // request_sync only hands off when a poller exists, and with no stored key
+  // or in a headless host there is none, in which case it blocks. "Sometimes
+  // asynchronous" is not a property a UI button can be built on.
+  //
+  // The flag is the whole click guard. Without it every click starts another
+  // request and a bored user walks straight into the gateway's 30 req/60s
+  // limit, turning an idle button into a rate-limited licence check.
+  void syncNowAsync() {
+    if (!handle_ || !configured_) return;
+    bool expected = false;
+    if (!syncInFlight_.compare_exchange_strong(expected, true,
+                                               std::memory_order_acq_rel)) {
+      return;  // one already in flight — the click is deliberately dropped
+    }
+    // Reap the previous thread before starting another. Assigning over a
+    // joinable std::thread calls terminate(); this is the only place that
+    // matters, because the flag guarantees at most one is ever live.
+    if (syncWorker_.joinable()) syncWorker_.join();
+    try {
+      syncWorker_ = std::thread([this]() {
+        const NexKeyRuntimeResult result =
+            nexkeyruntime_license_request_sync(handle_, 1);
+        manualSyncs_.fetch_add(1, std::memory_order_acq_rel);
+        lastSyncOk_.store(result == NEXKEYRUNTIME_OK, std::memory_order_release);
+        lastSyncAt_.store(static_cast<long long>(std::time(nullptr)),
+                          std::memory_order_release);
+        syncInFlight_.store(false, std::memory_order_release);
+      });
+    } catch (...) {
+      // A host out of threads is not a reason to leave the button dead
+      // forever, which is what a stuck flag would do.
+      syncInFlight_.store(false, std::memory_order_release);
+    }
   }
 
   // THE hot path. One atomic load inside the SDK, no I/O, no lock — safe to
@@ -465,6 +549,9 @@ private:
   std::atomic<bool> lastSyncOk_{false};
   std::atomic<int> lastSyncStatus_{-1};
   std::atomic<long long> lastSyncAt_{0};
+  std::atomic<bool> syncInFlight_{false};
+  std::atomic<long long> lastLocalReadAt_{0};
+  std::thread syncWorker_;
 };
 
 #else // MC_NEXKEY_ENABLED
@@ -477,7 +564,9 @@ public:
   void start() {}
   void shutdown() {}
   void refresh() {}
+  void refreshIfStale(int = 3) {}
   void syncNow() {}
+  void syncNowAsync() {}
   bool allowed() const { return true; }
 
   LicenseReport report() const {

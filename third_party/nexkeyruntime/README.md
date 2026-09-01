@@ -1,27 +1,28 @@
-# NexKeyRuntime 0.5.2 (vendored — macOS locally built, Windows still 0.5.0)
+# NexKeyRuntime 0.5.4 (vendored)
 
-Binaries and headers copied verbatim from a local build so this repository
-builds with `make clean && make` and no external directory:
+Binaries and headers copied verbatim from the published release archives, so
+this repository builds with `make clean && make` and no external directory:
 
 | File | Source |
 |---|---|
-| `lib/macos/libnexkeyruntime.a` | Built locally from `NexKeyRuntime` commit `e13bb30` — not yet a published GitHub release |
-| `include/nexkeyruntime/*` | Same local build; only the version macros and the earlier Perfil→Profile comment fix changed since 0.5.0 |
-| `lib/windows-x64/nexkeyruntime.lib` | **Unchanged — still `nexkeyruntime-0.5.0-windows-x64.zip`** from <https://github.com/ciqueira/NexKeyRuntime/releases/tag/v0.5.0>. Not rebuilt in this pass; see below. |
+| `include/nexkeyruntime/*` | `nexkeyruntime-0.5.4-macos-universal.zip` |
+| `lib/macos/libnexkeyruntime.a` | `nexkeyruntime-0.5.4-macos-universal.zip` — universal, `x86_64 arm64` |
+| `lib/windows-x64/nexkeyruntime.lib` | `nexkeyruntime-0.5.4-windows-x64.zip` |
 
-This is a pre-release testing step, not a version bump backed by a tagged
-release: the macOS fix being validated here (both `nexkeyruntime_license_deactivate()`
-and `nexkeyruntime_license_export_deactivation_proof()` used to wipe every
-receipt in the tenant directory instead of just the one for this handle's
-own entitlement — see the SDK's `CHANGELOG.md` for the full write-up) has
-not gone through `release-nexkeyruntime.yml` yet. Once `v0.5.2` is tagged
-and published for both platforms, replace this README (and the Windows
-binary) with the normal release-archive provenance the rest of this file's
-history uses.
+Both from <https://github.com/ciqueira/NexKeyRuntime/releases/tag/v0.5.4>, with
+the archive checksums verified against that release's `checksums.txt` before
+extraction. `CHECKSUMS.txt` here covers the extracted files as they sit in this
+directory.
 
-`libnexkeyruntime.a` is a universal binary (arm64 + x86_64) and is
-self-contained: it vendors Monocypher for Ed25519, so nothing needs libsodium
-installed to consume it — confirmed for this build via
-`PKG_CONFIG_LIBDIR=/nonexistent` at configure time, the same flag
-`release-nexkeyruntime.yml` uses to force the vendored backend on a runner
-that happens to have libsodium installed.
+This restores the normal release-archive provenance. The previous drop was a
+pre-release testing step — macOS built locally from an untagged commit, Windows
+left behind on 0.5.0 — which the 0.5.4 release supersedes on both platforms.
+
+## Why 0.5.4 matters for this plugin
+
+The background refresh used to be deferred every time the render guard was
+called, with no ceiling. A host that renders continuously — which is what
+DaVinci Resolve does during playback, scrubbing and preview — deferred it
+forever, so nothing from the server ever reached a plugin while it was in use:
+not revocation, not suspension, not expiry, not deactivation. Deferral is now
+bounded. See the SDK's `CHANGELOG.md`.

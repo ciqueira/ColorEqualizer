@@ -16,6 +16,7 @@
 #include "ColorMath.h"
 #include "EQParams.h"
 #include "MCLicense.h"
+#include "MCNotice.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -64,6 +65,11 @@
 #define kParamLumMaster "lumMaster"
 #define kParamAboutHelp "aboutHelp"
 #define kParamAppMCNexus "appMCNexus"
+#define kParamNoticeText "noticeText"
+#define kParamNoticeUpdate "noticeUpdate"
+#define kParamNoticeOpenNexus "noticeOpenNexus"
+#define kParamLicenseRefreshBtn "licenseRefreshBtn"
+#define kParamDiagHost "diagHost"
 #define kParamLicenseStatus "licenseStatus"
 #define kParamLicenseEdition "licenseEdition"
 #define kParamLicenseValidity "licenseValidity"
@@ -120,6 +126,34 @@ static void openExternalUrl(const char *url) {
   command += url;
   command += "\" >/dev/null 2>&1 &";
   std::system(command.c_str());
+#endif
+}
+
+// Same launchers, but reporting whether it worked.
+//
+// openExternalUrl() above returns void, which is fine for a fixed https link
+// that always resolves. It is not fine here: the SDK decides whether to fall
+// back from the mcnexus:// deep link to the https:// one by asking whether
+// the first attempt opened, so swallowing the failure would leave anyone
+// without MCNexus installed pressing a button that does nothing.
+static int openUrlForNotice(const char *url) {
+  if (!url || url[0] == '\0') return 0;
+#ifdef _WIN32
+  HINSTANCE result =
+      ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
+  return reinterpret_cast<intptr_t>(result) > 32 ? 1 : 0;
+#elif defined(__APPLE__)
+  // `open` exits non-zero when no application claims the scheme, which is
+  // exactly the signal needed and costs nothing to read.
+  std::string command = "open \"";
+  command += url;
+  command += "\" >/dev/null 2>&1";
+  return std::system(command.c_str()) == 0 ? 1 : 0;
+#else
+  std::string command = "xdg-open \"";
+  command += url;
+  command += "\" >/dev/null 2>&1";
+  return std::system(command.c_str()) == 0 ? 1 : 0;
 #endif
 }
 
@@ -363,14 +397,39 @@ private:
   OFX::DoubleParam *m_Lum[10];
 
   // Licensing (Perfil A — read only, never activates: D15)
-  void publishLicenseReport();
   mc::License m_License;
-  OFX::StringParam *m_LicenseStatus;
-  OFX::StringParam *m_LicenseEdition;
-  OFX::StringParam *m_LicenseValidity;
-  OFX::StringParam *m_LicenseActivation;
-  OFX::StringParam *m_LicenseSync;
-  OFX::StringParam *m_LicensePath;
+
+  // Remote notices and available releases only — never licence state, which
+  // gets its own behaviour and is deliberately not folded in here.
+  void publishNotice();
+
+  // Hides or restores every control when the licence verdict changes. The
+  // effect already refuses to render without a licence; this is the half that
+  // stops the panel from offering knobs that do nothing.
+  void applyLicenseGate();
+  OFX::GroupParam *m_HueGroup = nullptr;
+  OFX::GroupParam *m_SatGroup = nullptr;
+  OFX::GroupParam *m_LumGroup = nullptr;
+
+  // Guards against publishNotice()'s own writes re-entering changedParam.
+  bool m_Publishing = false;
+  mc::Notices m_Notices;
+  OFX::GroupParam *m_NoticeGroup = nullptr;
+  OFX::StringParam *m_NoticeText = nullptr;
+  OFX::PushButtonParam *m_NoticeUpdate = nullptr;
+  OFX::PushButtonParam *m_NoticeOpenNexus = nullptr;
+
+#ifdef MC_NEXKEY_DIAGNOSTICS
+  // Test instrument, compiled out of any shippable build (NEXKEY_DIAGNOSTICS=1).
+  void publishLicenseReport();
+  OFX::StringParam *m_LicenseStatus = nullptr;
+  OFX::StringParam *m_LicenseEdition = nullptr;
+  OFX::StringParam *m_LicenseValidity = nullptr;
+  OFX::StringParam *m_LicenseActivation = nullptr;
+  OFX::StringParam *m_LicenseSync = nullptr;
+  OFX::StringParam *m_LicensePath = nullptr;
+  OFX::StringParam *m_DiagHost = nullptr;
+#endif
 };
 
 // ─── Constructor ──────────────────────────────────────────────────────────
@@ -380,55 +439,187 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   m_DstClip = fetchClip(kOfxImageEffectOutputClipName);
   m_SrcClip = fetchClip(kOfxImageEffectSimpleSourceClipName);
 
+  m_NoticeGroup = fetchGroupParam("grpNotice");
+  m_NoticeText = fetchStringParam(kParamNoticeText);
+  m_NoticeUpdate = fetchPushButtonParam(kParamNoticeUpdate);
+  m_NoticeOpenNexus = fetchPushButtonParam(kParamNoticeOpenNexus);
+
+#ifdef MC_NEXKEY_DIAGNOSTICS
   m_LicenseStatus = fetchStringParam(kParamLicenseStatus);
   m_LicenseEdition = fetchStringParam(kParamLicenseEdition);
   m_LicenseValidity = fetchStringParam(kParamLicenseValidity);
   m_LicenseActivation = fetchStringParam(kParamLicenseActivation);
   m_LicenseSync = fetchStringParam(kParamLicenseSync);
   m_LicensePath = fetchStringParam(kParamLicensePath);
+  m_DiagHost = fetchStringParam(kParamDiagHost);
+#endif
 
   // Off the render thread, once per instance: the signature verification and
   // the disk reads all happen here so render() only ever does an atomic load.
   m_License.start();
-  publishLicenseReport();
+
+  // Starts the first update check and does not wait for it. Whatever comes
+  // back lands on screen at the next InstanceChanged — OFX offers no timer
+  // and parameters may only be written from the UI thread.
+  //
+  // The host identifies itself so notices scoped to a host and version can
+  // match. Passed through verbatim: which string Resolve reports is not
+  // documented anywhere and the diagnostics panel exists to find out.
+  {
+    const OFX::ImageEffectHostDescription *host =
+        OFX::getImageEffectHostDescription();
+    std::string hostVersion;
+    if (host) {
+      char buffer[48];
+      std::snprintf(buffer, sizeof(buffer), "%d.%d.%d", host->versionMajor,
+                    host->versionMinor, host->versionMicro);
+      hostVersion = buffer;
+    }
+    m_Notices.start(&openUrlForNotice, host ? host->hostName.c_str() : nullptr,
+                    hostVersion.c_str());
+  }
 
   m_InputCS = fetchChoiceParam(kParamInputCS);
   m_SpaceType = fetchChoiceParam(kParamSpaceType);
 
+  m_HueGroup = fetchGroupParam("grpHue");
   m_HueMaster = fetchDoubleParam(kParamHueMaster);
   for (int i = 0; i < 10; i++)
     m_Hue[i] = fetchDoubleParam(kHueNames[i]);
 
+  m_SatGroup = fetchGroupParam("grpSat");
   m_SatMaster = fetchDoubleParam(kParamSatMaster);
   for (int i = 0; i < 10; i++)
     m_Sat[i] = fetchDoubleParam(kSatNames[i]);
 
+  m_LumGroup = fetchGroupParam("grpLum");
   m_LumMaster = fetchDoubleParam(kParamLumMaster);
   for (int i = 0; i < 10; i++)
     m_Lum[i] = fetchDoubleParam(kLumNames[i]);
+
+  // Publishing comes LAST, after every fetch above: applyLicenseGate() writes
+  // to all of them, and the earlier version of this constructor published
+  // before the controls existed as pointers.
+  //
+  // Same guard as changedParam: these writes can be delivered back as
+  // InstanceChanged while the instance is still being constructed, which is a
+  // worse version of the same loop — it re-enters an object that is not
+  // finished yet.
+  m_Publishing = true;
+  applyLicenseGate();
+  publishNotice();
+#ifdef MC_NEXKEY_DIAGNOSTICS
+  publishLicenseReport();
+#endif
+  m_Publishing = false;
 }
 
 // ─── changedParam ─────────────────────────────────────────────────────────
 
-void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &,
+void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args,
                                           const std::string &p_ParamName) {
+  // WRITING A PARAMETER FROM HERE CALLS THIS BACK.
+  //
+  // publishNotice() writes: setValue on the text, setIsSecret on the group and
+  // both buttons. Each of those makes the host emit another InstanceChanged,
+  // which lands right back here and publishes again — 975 levels deep before
+  // Resolve's stack guard killed it. The old code never hit this because it
+  // only republished inside the licence buttons' own branches; publishing on
+  // EVERY change is what closed the loop.
+  //
+  // Two barriers, because either alone has a hole. `reason` is the documented
+  // fix — the host tags plugin-initiated changes eChangePluginEdit — but it
+  // depends on the host tagging them honestly, and a re-entrancy flag costs
+  // one bool and does not.
+  if (m_Publishing) return;
   if (p_ParamName == kParamAboutHelp) {
     openExternalUrl(kAboutHelpUrl);
   } else if (p_ParamName == kParamAppMCNexus) {
     openMCNexusApp();
-  } else if (p_ParamName == kParamLicenseSync "Btn") {
-    // Talks to the backend right now instead of waiting out syncAfter, which
-    // is 24h. This is how a suspend/revoke/edition change made on the server
-    // becomes visible in seconds during testing.
+  } else if (p_ParamName == kParamNoticeUpdate ||
+             p_ParamName == kParamNoticeOpenNexus) {
+    // Both buttons do the same thing to the same item — they differ only in
+    // what they promise, which is why there are two of them and not one with
+    // a runtime label (OFX hosts are not obliged to refresh labels).
+    m_Notices.openAction();
+  } else if (p_ParamName == kParamLicenseRefreshBtn) {
+    // DISK FIRST, ALWAYS. Activation and deactivation both happen in another
+    // process, and both land as a change to the receipt on disk — MCNexus
+    // writes one when you activate and deletes it when you deactivate. Only
+    // load_local() notices either.
+    //
+    // The first version of this branched on allowed() before re-reading, and
+    // got the deactivation case exactly backwards: with the receipt already
+    // gone, the plugin still held an ACTIVE snapshot in memory, so allowed()
+    // said yes and the click went down the asynchronous path, which never
+    // touches the disk. Nothing happened, however many times it was pressed.
+    //
+    // Re-reading first also makes the activation case cheaper than it was:
+    // the receipt MCNexus just wrote is already there, so the controls come
+    // back without waiting for the network at all.
+    m_License.refresh();
+
+    // Then confirm against the server in the background. Never blocking, in
+    // either state.
+    //
+    // The unlicensed branch used to wait up to 4s here, and that wait was
+    // worse than it looked. request_sync() hands the work to the poller and
+    // returns OK the moment one exists — which it does, because the plugin
+    // opened while still licensed — so syncNow() sat in its 80 x 50ms loop
+    // waiting for a callback that could never arrive: the poller had lost the
+    // licence key along with the receipt and gone to sleep. Four seconds of
+    // frozen host UI, on every click, for nothing.
+    //
+    // The wait is not needed any more. The case it existed for — "I just
+    // activated in MCNexus, show me" — is answered by the disk read above,
+    // because activation writes the receipt before the user can even get back
+    // to the host. The rarer case, receipt gone but key still present and the
+    // server able to restore it, now resolves on the next parameter change,
+    // since every one of them re-reads the receipt.
+    m_License.syncNowAsync();
+  }
+#ifdef MC_NEXKEY_DIAGNOSTICS
+  else if (p_ParamName == kParamLicenseSync "Btn") {
+    // Blocking on purpose, unlike the shipped button: a tester wants the
+    // answer before the panel redraws. Talks to the backend now instead of
+    // waiting out syncAfter, which is 24h.
     m_License.syncNow();
-    publishLicenseReport();
   } else if (p_ParamName == kParamLicenseRefresh) {
     // Re-reads the receipt from disk. This is what an operator presses after
     // activating in another process — the plugin has no idea that happened
     // until something tells it to look again.
     m_License.refresh();
-    publishLicenseReport();
   }
+#endif
+
+  // Every USER change, not just the ones above. This is the only moment OFX
+  // offers to consume an update check that finished on a background thread:
+  // there is no idle callback, and parameters may not be written from the
+  // worker. Cheap — reading two snapshots and, at most, hiding or showing a
+  // group.
+  //
+  // eChangeUserEdit only. eChangePluginEdit is this function's own writes
+  // coming back, and eChangeTime fires on every frame of playback — republishing
+  // there would put a network-backed check on the playback path.
+  if (p_Args.reason != OFX::eChangeUserEdit) return;
+
+  m_Publishing = true;
+
+  // Re-read the receipt before deciding anything. Deactivation happens in
+  // another process and leaves no trace this plugin is told about — without
+  // this line the panel only ever converges when somebody presses Refresh,
+  // and the person sitting in front of an unlicensed plugin has no reason to
+  // press it. Rate limited inside, so dragging a slider does not turn into a
+  // file read per movement.
+  m_License.refreshIfStale();
+
+  m_Notices.poke();
+  applyLicenseGate();
+  publishNotice();
+#ifdef MC_NEXKEY_DIAGNOSTICS
+  publishLicenseReport();
+#endif
+  m_Publishing = false;
 }
 
 // ─── getActiveParams ──────────────────────────────────────────────────────
@@ -493,8 +684,84 @@ bool MCColorEqualizerPlugin::isIdentity(const OFX::IsIdentityArguments &p_Args,
 // 0.0 only on hue offsets (EQParams.h).
 // Copies the SDK's view of the world into the two display parameters. Called
 // after construction and from the Refresh button — never from render.
+// The whole of what this plugin says about licensing and releases.
+//
+// Hiding is the default state, not an edge case: on a healthy, licensed,
+// up-to-date install this group never appears at all, and the panel looks
+// like a colour tool rather than a licence manager.
+// Every control disappears when there is no licence, and comes back when one
+// turns up. The image keeps flowing — isIdentity already hands the source
+// through untouched — so what the user sees is their footage, unprocessed,
+// with nothing on the panel but Support.
+//
+// Hiding one by one rather than hiding the three groups: OFX does not require
+// a host to hide a group's children along with it, and Input Space and Space
+// Type do not live in a group at all. The groups are hidden too, so an empty
+// header does not sit there.
+//
+// The values are untouched. A hidden parameter keeps whatever the colourist
+// dialled in, so restoring the licence restores their grade rather than a
+// default one.
+//
+// Reads allowed(), not licenseAllows(): in shadow mode allowed() is
+// constant-true, so a development build shows everything and renders
+// everything, exactly as before. UI and render must agree — a panel that
+// empties itself while the effect still applies would be worse than either.
+void MCColorEqualizerPlugin::applyLicenseGate() {
+  const bool hidden = !m_License.allowed();
+
+  if (m_InputCS) m_InputCS->setIsSecret(hidden);
+  if (m_SpaceType) m_SpaceType->setIsSecret(hidden);
+
+  if (m_HueGroup) m_HueGroup->setIsSecret(hidden);
+  if (m_HueMaster) m_HueMaster->setIsSecret(hidden);
+  if (m_SatGroup) m_SatGroup->setIsSecret(hidden);
+  if (m_SatMaster) m_SatMaster->setIsSecret(hidden);
+  if (m_LumGroup) m_LumGroup->setIsSecret(hidden);
+  if (m_LumMaster) m_LumMaster->setIsSecret(hidden);
+
+  for (int band = 0; band < 10; ++band) {
+    if (m_Hue[band]) m_Hue[band]->setIsSecret(hidden);
+    if (m_Sat[band]) m_Sat[band]->setIsSecret(hidden);
+    if (m_Lum[band]) m_Lum[band]->setIsSecret(hidden);
+  }
+}
+
+void MCColorEqualizerPlugin::publishNotice() {
+  // Silent without a licence: Support is the only thing on screen then, and a
+  // "new version available" banner is not what somebody who cannot render is
+  // trying to solve.
+  const mc::NoticeView view =
+      m_License.allowed() ? m_Notices.view() : mc::NoticeView();
+
+  if (m_NoticeText) m_NoticeText->setValue(view.text);
+
+  // The group AND both buttons. Hiding only the group leaves hosts that
+  // render children independently showing a stray "Update" button with no
+  // context around it.
+  if (m_NoticeGroup) m_NoticeGroup->setIsSecret(!view.visible);
+  if (m_NoticeUpdate) m_NoticeUpdate->setIsSecret(!view.offerUpdate);
+  if (m_NoticeOpenNexus) m_NoticeOpenNexus->setIsSecret(!view.offerOpenNexus);
+}
+
+#ifdef MC_NEXKEY_DIAGNOSTICS
 void MCColorEqualizerPlugin::publishLicenseReport() {
   const mc::LicenseReport report = m_License.report();
+
+  if (m_DiagHost) {
+    const OFX::ImageEffectHostDescription *host =
+        OFX::getImageEffectHostDescription();
+    if (!host) {
+      m_DiagHost->setValue("(host did not describe itself)");
+    } else {
+      char buffer[192];
+      std::snprintf(buffer, sizeof(buffer), "%s  %d.%d.%d  (\"%s\")",
+                    host->hostName.c_str(), host->versionMajor,
+                    host->versionMinor, host->versionMicro,
+                    host->versionLabel.c_str());
+      m_DiagHost->setValue(buffer);
+    }
+  }
 
   if (m_LicenseStatus) {
     std::string text = report.status;
@@ -526,6 +793,7 @@ void MCColorEqualizerPlugin::publishLicenseReport() {
     m_LicensePath->setValue(text);
   }
 }
+#endif // MC_NEXKEY_DIAGNOSTICS
 
 EQParams MCColorEqualizerPlugin::neutralParams() {
   EQParams params;
@@ -653,6 +921,52 @@ void MCColorEqualizerFactory::describeInContext(
 
   // ── Parameters page ───────────────────────────────────────────────────
   OFX::PageParamDescriptor *page = p_Desc.definePageParam("Controls");
+
+  // ════════════════════════════════════════════════════════════════════
+  // Group: Notice — FIRST, and invisible almost always
+  // ════════════════════════════════════════════════════════════════════
+  //
+  // Declared here because a parameter cannot be created later: OFX fixes the
+  // set at describe() time, so "appears when there is news" has to mean
+  // "declared always, revealed by setIsSecret(false) on the instance".
+  //
+  // First on the page on purpose. It is the only thing in this panel the user
+  // may need to act on, and it is absent the rest of the time — so it costs
+  // nothing to put it where it will be seen when it does show up.
+  {
+    OFX::GroupParamDescriptor *grp = p_Desc.defineGroupParam("grpNotice");
+    grp->setLabels("Notice", "Notice", "Notice");
+    grp->setOpen(true);   // if it is showing at all, it has something to say
+    grp->setIsSecret(true);
+    page->addChild(*grp);
+
+    OFX::StringParamDescriptor *text =
+        p_Desc.defineStringParam(kParamNoticeText);
+    text->setLabels("", "", "");
+    text->setStringType(OFX::eStringTypeMultiLine);
+    text->setEnabled(false);         // display only
+    text->setIsPersistant(false);    // recomputed on load; never saved in the project
+    text->setParent(*grp);
+    page->addChild(*text);
+
+    // Two buttons, one action. A single button with a label rewritten at
+    // runtime would be smaller, but OFX does not require a host to refresh a
+    // parameter's label after describe() — and "Update" sitting under "your
+    // license expired" is worse than an extra param descriptor.
+    OFX::PushButtonParamDescriptor *update =
+        p_Desc.definePushButtonParam(kParamNoticeUpdate);
+    update->setLabels("Update", "Update", "Update");
+    update->setIsSecret(true);
+    update->setParent(*grp);
+    page->addChild(*update);
+
+    OFX::PushButtonParamDescriptor *openNexus =
+        p_Desc.definePushButtonParam(kParamNoticeOpenNexus);
+    openNexus->setLabels("Open MCNexus", "Open MCNexus", "Open MCNexus");
+    openNexus->setIsSecret(true);
+    openNexus->setParent(*grp);
+    page->addChild(*openNexus);
+  }
 
   // ════════════════════════════════════════════════════════════════════
   // Input Space & Model (top-level, no group)
@@ -788,7 +1102,14 @@ void MCColorEqualizerFactory::describeInContext(
   {
     OFX::GroupParamDescriptor *grp = p_Desc.defineGroupParam("grpSupport");
     grp->setLabels("Support", "Support", "Support");
-    grp->setOpen(false);
+    // Open, and open ALWAYS — not only when unlicensed, because a group
+    // cannot be opened at runtime. On the instance, GroupParam exposes
+    // getIsOpen() and nothing else; setOpen lives on the descriptor, and the
+    // OFX docs call it the group's "initial state". So an unlicensed plugin
+    // whose only remaining panel sat collapsed would need a click to reveal
+    // the one button that fixes it. Three buttons showing the rest of the
+    // time is the cheaper half of that trade.
+    grp->setOpen(true);
     page->addChild(*grp);
 
     OFX::PushButtonParamDescriptor *aboutHelp =
@@ -796,6 +1117,17 @@ void MCColorEqualizerFactory::describeInContext(
     aboutHelp->setLabels("About and Help", "About and Help", "About and Help");
     aboutHelp->setParent(*grp);
     page->addChild(*aboutHelp);
+
+    // Silent, asynchronous, and click-guarded. It gives no feedback by
+    // design: there is no licence panel here to refresh, and the user checks
+    // state in MCNexus. What it is FOR is the gap between activating there
+    // and this plugin noticing — without it the plugin waits out syncAfter,
+    // which is 24h.
+    OFX::PushButtonParamDescriptor *refresh =
+        p_Desc.definePushButtonParam(kParamLicenseRefreshBtn);
+    refresh->setLabels("Refresh License", "Refresh License", "Refresh License");
+    refresh->setParent(*grp);
+    page->addChild(*refresh);
 
     OFX::PushButtonParamDescriptor *appMCNexus =
         p_Desc.definePushButtonParam(kParamAppMCNexus);
@@ -808,10 +1140,16 @@ void MCColorEqualizerFactory::describeInContext(
   }
 
   // ════════════════════════════════════════════════════════════════════
-  // Group: License
+  // Group: License — DIAGNOSTICS ONLY (build with NEXKEY_DIAGNOSTICS=1)
   // ════════════════════════════════════════════════════════════════════
   //
-  // These two read-only fields are the instrument P11 is run with. The
+  // Absent from any shippable build. MCNexus already shows edition, seats,
+  // validity and activation properly, and a second copy inside every plugin
+  // would be a second place to keep correct — the shipped panel says at most
+  // one thing, in the Notice group above.
+  //
+  // It stays available because the Fase 7 matrix still needs it:
+  // these two read-only fields are the instrument P11 is run with. The
   // question that item asks is whether a receipt written OUTSIDE the host is
   // found by this plugin INSIDE it — and a sandboxed DaVinci Resolve silently
   // redirects ~/Library/Application Support into its own container, so the
@@ -821,6 +1159,7 @@ void MCColorEqualizerFactory::describeInContext(
   // Without them a denied plugin just looks inert, which is indistinguishable
   // from "not activated", "wrong entitlement", "bad ProductData" and
   // "sandbox redirected storage" — the one thing the test needs to tell apart.
+#ifdef MC_NEXKEY_DIAGNOSTICS
   {
     OFX::GroupParamDescriptor *grp = p_Desc.defineGroupParam("grpLicense");
     grp->setLabels("License", "License", "License");
@@ -872,6 +1211,19 @@ void MCColorEqualizerFactory::describeInContext(
     sync->setParent(*grp);
     page->addChild(*sync);
 
+    // What the host calls itself, verbatim. Every manifest written so far
+    // assumes "DaVinciResolve" because the spec's example said so; nobody has
+    // seen a host say it. A notice scoped to the wrong string matches nobody
+    // and fails completely silently, so this is the field that settles it.
+    OFX::StringParamDescriptor *hostInfo =
+        p_Desc.defineStringParam(kParamDiagHost);
+    hostInfo->setLabels("Host", "Host", "Host");
+    hostInfo->setStringType(OFX::eStringTypeSingleLine);
+    hostInfo->setEnabled(false);
+    hostInfo->setIsPersistant(false);
+    hostInfo->setParent(*grp);
+    page->addChild(*hostInfo);
+
     OFX::StringParamDescriptor *path =
         p_Desc.defineStringParam(kParamLicensePath);
     path->setLabels("Receipts", "Receipts", "Receipts");
@@ -889,10 +1241,11 @@ void MCColorEqualizerFactory::describeInContext(
 
     OFX::PushButtonParamDescriptor *refresh =
         p_Desc.definePushButtonParam(kParamLicenseRefresh);
-    refresh->setLabels("Refresh License", "Refresh License", "Refresh License");
+    refresh->setLabels("Reload Receipt", "Reload Receipt", "Reload Receipt");
     refresh->setParent(*grp);
     page->addChild(*refresh);
   }
+#endif // MC_NEXKEY_DIAGNOSTICS
 }
 
 // ─── createInstance ───────────────────────────────────────────────────────
