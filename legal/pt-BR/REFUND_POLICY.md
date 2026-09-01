@@ -2,9 +2,9 @@
 
 [English](../REFUND_POLICY.md) · [Português](REFUND_POLICY.md)
 
-Última atualização: 15 de julho de 2026
+Última atualização: 31 de agosto de 2026
 
-Versão do documento: `color-equalizer-refunds-2026-07-15`
+Versão do documento: `color-equalizer-refunds-2026-08-31`
 
 Vendedor: **56.442.448 MAGNO DIAS CIQUEIRA**, nome comercial **Magno Dias
 Ciqueira**, CNPJ **56.442.448/0001-10**. Endereço de atendimento: Avenida
@@ -32,7 +32,7 @@ Não publique dados de pagamento ou chaves em GitHub Issues. Informações
 adicionais serão solicitadas somente quando razoavelmente necessárias para
 confirmar o pagador e prevenir fraude.
 
-## 2. Arrependimento e remédios obrigatórios
+## 2. Arrependimento e medidas obrigatórias
 
 Na contratação à distância por consumidor brasileiro, o exercício tempestivo
 do direito de arrependimento será tratado conforme o art. 49 do Código de
@@ -53,7 +53,7 @@ legal aplicável.
 
 ## 3. Solicitações após os prazos obrigatórios
 
-Após o término dos prazos de arrependimento e remédios obrigatórios, a compra é
+Esgotados os prazos de arrependimento e as medidas obrigatórias, a compra é
 normalmente definitiva. Não há promessa de reembolso voluntário apenas porque o
 comprador mudou de preferência, não usou o suporte, esperava funcionalidade não
 prometida ou deixou de precisar do plugin.

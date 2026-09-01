@@ -2,9 +2,9 @@
 
 [English](../PRIVACY.md) · [Português](PRIVACY.md)
 
-Última atualização: 15 de julho de 2026
+Última atualização: 31 de agosto de 2026
 
-Versão do documento: `color-equalizer-privacy-2026-07-15`
+Versão do documento: `color-equalizer-privacy-2026-08-31`
 
 Esta política descreve o tratamento de dados pessoais ligado especificamente
 ao Color Equalizer, à licença gratuita, à compra opcional de Supporter, ao
@@ -63,7 +63,7 @@ Os dados podem ser tratados para:
 - verificar elegibilidade e evitar compras duplicadas acidentais;
 - confirmar o pagamento, registrar a oferta aceita, prestar o benefício de
   Supporter e tratar reembolsos ou disputas;
-- enviar entrega, releases, compatibilidade, manutenção, segurança e alterações
+- enviar entrega, versões, compatibilidade, manutenção, segurança e alterações
   relevantes do Color Equalizer;
 - responder a suporte e privacidade;
 - prevenir fraude, abuso, vazamento de credenciais e incidentes de segurança;

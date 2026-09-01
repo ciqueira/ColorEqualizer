@@ -4,7 +4,7 @@
 
 Last updated: July 15, 2026
 
-Document version: `color-equalizer-terms-2026-07-15-v3`
+Document version: `color-equalizer-terms-2026-08-31`
 
 Seller and product developer: **56.442.448 MAGNO DIAS CIQUEIRA**, trade name
 **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Service address: Avenida

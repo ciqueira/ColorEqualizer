@@ -2,9 +2,9 @@
 
 [English](../SUPPORT_POLICY.md) · [Português](SUPPORT_POLICY.md)
 
-Última atualização: 15 de julho de 2026
+Última atualização: 31 de agosto de 2026
 
-Versão do documento: `color-equalizer-support-2026-07-15`
+Versão do documento: `color-equalizer-support-2026-08-31`
 
 ## 1. Suporte comunitário gratuito
 
@@ -53,8 +53,8 @@ do host, recuperação de projetos danificados, administração remota da estaç
 ou compatibilidade garantida com sistemas e hardware não suportados.
 
 Solicitações abusivas, ilegais, automatizadas ou excessivas podem ser limitadas
-após aviso razoável. Remédios obrigatórios do consumidor e relatos de segurança
-de boa-fé permanecem preservados.
+após aviso razoável. As medidas obrigatórias do consumidor e os relatos de
+segurança de boa-fé permanecem preservados.
 
 ## 5. Contato
 

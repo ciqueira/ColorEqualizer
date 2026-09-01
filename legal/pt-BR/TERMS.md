@@ -2,9 +2,9 @@
 
 [English](../TERMS.md) · [Português](TERMS.md)
 
-Última atualização: 15 de julho de 2026
+Última atualização: 31 de agosto de 2026
 
-Versão do documento: `color-equalizer-terms-2026-07-15-v3`
+Versão do documento: `color-equalizer-terms-2026-08-31`
 
 Vendedor e desenvolvedor do produto: **56.442.448 MAGNO DIAS CIQUEIRA**, nome
 comercial **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Endereço de
@@ -48,7 +48,7 @@ Para a oferta exibida no checkout, o benefício inclui atualmente:
 
 - suporte prioritário por e-mail por 12 meses após a confirmação do pagamento;
   e
-- comunicações operacionais por e-mail sobre releases, compatibilidade,
+- comunicações operacionais por e-mail sobre versões, compatibilidade,
   manutenção, segurança e alterações relevantes do Color Equalizer.
 
 Não é necessária uma chave anterior do Color Equalizer antes do checkout.
@@ -104,7 +104,7 @@ todos os direitos obrigatórios, inclusive o exercício tempestivo do direito de
 arrependimento aplicável à contratação brasileira à distância, cobranças em
 duplicidade ou não autorizadas, fraude, falha de entrega e vício não solucionado.
 
-Após o término dos prazos e remédios obrigatórios, não há promessa de reembolso
+Esgotados os prazos e as medidas obrigatórias, não há promessa de reembolso
 voluntário apenas por mudança de preferência ou falta de uso do benefício. Nada
 nestes Termos exclui direito que a legislação aplicável não permita afastar.
 
@@ -118,7 +118,7 @@ regras da licença.
 
 A suspensão não elimina automaticamente direitos obrigatórios de reembolso,
 consumo, privacidade ou defesa. A licença gratuita do plugin e o benefício pago
-de suporte são objetos distintos e não devem ser tratados como remédios
+de suporte são objetos distintos e não devem ser tratados como medidas
 intercambiáveis.
 
 ## 9. Disponibilidade, garantia e responsabilidade
@@ -128,8 +128,9 @@ esforços razoáveis para manter builds suportados e o canal pago de suporte, ma
 nenhuma ferramenta audiovisual deve ser a única cópia de dados de projeto ou o
 único plano para cumprir um prazo de produção.
 
-Na máxima extensão permitida, o vendedor não responde por danos indiretos ou
-consequenciais, lucros cessantes, prazos perdidos ou falhas de hosts terceiros.
+Na máxima extensão permitida por lei, o vendedor não responde por danos
+indiretos ou consequentes, lucros cessantes, prazos perdidos ou falhas de
+aplicativos hospedeiros de terceiros.
 Essa limitação não se aplica quando vedada pela legislação de consumo nem às
 responsabilidades que não possam ser legalmente limitadas.
 

@@ -4,7 +4,7 @@
 
 Last updated: July 15, 2026
 
-Document version: `color-equalizer-privacy-2026-07-15`
+Document version: `color-equalizer-privacy-2026-08-31`
 
 This policy describes personal-data processing specifically connected to Color
 Equalizer, its free license, the optional Supporter purchase, operational

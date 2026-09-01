@@ -4,7 +4,7 @@
 
 Last updated: July 15, 2026
 
-Document version: `color-equalizer-support-2026-07-15`
+Document version: `color-equalizer-support-2026-08-31`
 
 ## 1. Free community support
 
