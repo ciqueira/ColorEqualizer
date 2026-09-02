@@ -37,10 +37,9 @@
 
 // ─── Plugin identity constants ─────────────────────────────────────────────
 #ifndef PLUGIN_VERSION
-#define kPluginVersion "v0.0.1"
-#else
-#define kPluginVersion PLUGIN_VERSION
+#error "PLUGIN_VERSION must be defined from the ColorEqualizer VERSION file"
 #endif
+#define kPluginVersion PLUGIN_VERSION
 
 #define kPluginName "Color Equalizer"
 // A staging build carries the tag in the name the host displays. If one of
