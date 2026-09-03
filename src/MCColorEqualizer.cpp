@@ -378,6 +378,7 @@ public:
                           double &p_IdentityTime) override;
   virtual void changedParam(const OFX::InstanceChangedArgs &p_Args,
                             const std::string &p_ParamName) override;
+  virtual void beginEdit(void) override;
 
 private:
   void setupAndProcess(ColorEqualizerProcessor &p_Processor,
@@ -415,6 +416,16 @@ private:
   // effect already refuses to render without a licence; this is the half that
   // stops the panel from offering knobs that do nothing.
   void applyLicenseGate();
+
+  // The same gate, but free to call on a path that fires constantly. Writes
+  // nothing unless the verdict on screen disagrees with the current one.
+  void syncLicenseGateIfChanged();
+
+  // What applyLicenseGate() last put on screen. The verdict can change with
+  // nobody touching anything — a revoke landing on the SDK's poller thread —
+  // and this is what makes noticing that cost one atomic read instead of
+  // thirty-odd setIsSecret() calls per frame.
+  bool m_GateHidden = false;
   OFX::GroupParam *m_HueGroup = nullptr;
   OFX::GroupParam *m_SatGroup = nullptr;
   OFX::GroupParam *m_LumGroup = nullptr;
@@ -609,7 +620,15 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
   // eChangeUserEdit only. eChangePluginEdit is this function's own writes
   // coming back, and eChangeTime fires on every frame of playback — republishing
   // there would put a network-backed check on the playback path.
-  if (p_Args.reason != OFX::eChangeUserEdit) return;
+  //
+  // The other reasons are not dropped outright any more, though: they get the
+  // compare-first gate below, which reads one atomic and returns. That is the
+  // only thing standing between a verdict that flipped on a background thread
+  // and a panel still showing controls the effect stopped obeying.
+  if (p_Args.reason != OFX::eChangeUserEdit) {
+    syncLicenseGateIfChanged();
+    return;
+  }
 
   m_Publishing = true;
 
@@ -622,6 +641,46 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
   m_License.refreshIfStale();
 
   m_Notices.poke();
+  applyLicenseGate();
+  publishNotice();
+#ifdef MC_NEXKEY_DIAGNOSTICS
+  publishLicenseReport();
+#endif
+  m_Publishing = false;
+}
+
+// ─── beginEdit ────────────────────────────────────────────────────────────
+
+// kOfxActionBeginInstanceEdit: the host is telling us a user interface just
+// opened on this instance.
+//
+// This exists for the half of the licence gate changedParam cannot reach. A
+// revoke or a suspend arrives from the SERVER, on the SDK's poller thread,
+// and OFX allows parameters to be written from the UI thread only — so the
+// poller flips the render decision (render() gets that for free, it is one
+// atomic read) and nothing re-runs applyLicenseGate(). Measured against a
+// backoffice revoke with syncAfter at 3 min: the effect stopped applying on
+// schedule and every control stayed on screen, offering knobs the effect no
+// longer obeyed, until a control was touched.
+//
+// Opening the panel is the right moment to settle that, because a stale
+// panel can only mislead somebody who is looking at it. One receipt read
+// when a UI opens — not on the render path, not on a timer.
+//
+// Deliberately NOT the fix for the render gate. A deliver-page export opens
+// no editor, so this never fires there; that gap belongs to the recheck loop
+// in MCLicense.h, which runs whether or not anyone is watching. The two cover
+// different halves and neither replaces the other.
+void MCColorEqualizerPlugin::beginEdit(void) {
+  // Same re-entrancy guard as changedParam: every write below is delivered
+  // back to us as an InstanceChanged.
+  m_Publishing = true;
+
+  // Cheap and rate limited. Catches the other deactivation route — MCNexus
+  // deleting the receipt — which no amount of network syncing reports,
+  // because it never reaches the server.
+  m_License.refreshIfStale();
+
   applyLicenseGate();
   publishNotice();
 #ifdef MC_NEXKEY_DIAGNOSTICS
@@ -717,6 +776,7 @@ bool MCColorEqualizerPlugin::isIdentity(const OFX::IsIdentityArguments &p_Args,
 // empties itself while the effect still applies would be worse than either.
 void MCColorEqualizerPlugin::applyLicenseGate() {
   const bool hidden = !m_License.allowed();
+  m_GateHidden = hidden;
 
   if (m_InputCS) m_InputCS->setIsSecret(hidden);
   if (m_SpaceType) m_SpaceType->setIsSecret(hidden);
@@ -733,6 +793,38 @@ void MCColorEqualizerPlugin::applyLicenseGate() {
     if (m_Sat[band]) m_Sat[band]->setIsSecret(hidden);
     if (m_Lum[band]) m_Lum[band]->setIsSecret(hidden);
   }
+}
+
+// The verdict can change with nobody touching anything: a revoke or a suspend
+// lands on the SDK's poller thread, and the local recheck loop lands on ours.
+// Both flip render_decision(), which render() obeys immediately and for free —
+// and neither can write a parameter, because OFX allows that from the UI
+// thread only. So the effect stops applying and the panel keeps offering the
+// controls, which is what a backoffice revoke looked like in practice: the
+// image reverted on schedule, every knob stayed on screen.
+//
+// changedParam is the only place the host hands us the UI thread often enough
+// to notice. eChangeUserEdit is the deliberate path and does the full
+// republish; this is for every OTHER reason — above all eChangeTime, which
+// fires per frame while the timeline plays and is precisely when somebody is
+// looking at a panel that just went stale.
+//
+// Which is why this compares before it writes. Per frame it is one atomic
+// read and a bool compare, and it touches a parameter only on the frame where
+// the verdict actually flipped — never on the thousands where it did not.
+// That is what makes it safe on a path the full republish had to stay off.
+void MCColorEqualizerPlugin::syncLicenseGateIfChanged() {
+  if (m_GateHidden == !m_License.allowed()) return;
+
+  m_Publishing = true;
+  applyLicenseGate();
+  // The notice text is gated on the same verdict, so it goes stale in the
+  // same instant and for the same reason.
+  publishNotice();
+#ifdef MC_NEXKEY_DIAGNOSTICS
+  publishLicenseReport();
+#endif
+  m_Publishing = false;
 }
 
 void MCColorEqualizerPlugin::publishNotice() {

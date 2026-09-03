@@ -18,6 +18,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -278,9 +280,17 @@ public:
     nexkeyruntime_license_set_metadata(handle_, "product", MC_NEXKEY_PRODUCT);
     configured_ = true;
     refresh();
+    startRecheckLoop();
   }
 
   void shutdown() {
+    // Signal first, join second — recheckLoop() sleeps on this cv, so setting
+    // the flag without notifying would leave it waiting out the last interval
+    // instead of waking immediately.
+    stopRecheck_.store(true, std::memory_order_release);
+    recheckCv_.notify_all();
+    if (recheckWorker_.joinable()) recheckWorker_.join();
+
     // Ours first, the SDK's second. syncWorker_ calls into the handle, so
     // destroying the handle while it runs is a use-after-free — and destroy()
     // only ever joins the SDK's own poller, never a thread this file started.
@@ -325,6 +335,16 @@ public:
   // instead of never. The throttle is there because dragging a slider emits a
   // change per movement and each read costs a file read plus an Ed25519
   // verification — small, but not free at frame rate.
+  //
+  // NOT ENOUGH ON ITS OWN, though: measured separately — deactivate, then
+  // just play the timeline or run a headless render with no parameter ever
+  // touched, and the stale ACTIVE snapshot rides along for the whole render,
+  // because render() only ever reads the cached decision (§ hot path, no I/O
+  // allowed there) and nothing about playback or rendering calls this. A
+  // colourist who grades once and walks away, or an unattended deliver-page
+  // export, converges NEVER through this path alone. recheckLoop() below is
+  // what covers that gap; this function stays the fast path for the common
+  // case of a hand still on the controls.
   void refreshIfStale(int minimumIntervalSeconds = 3) {
     if (!handle_ || !configured_) return;
     const long long now = static_cast<long long>(std::time(nullptr));
@@ -547,6 +567,47 @@ private:
     }
   }
 
+  // Covers what refreshIfStale() cannot: playback and rendering never call
+  // it (render() is the one place a disk read is forbidden), so a session
+  // that only plays or renders — no parameter ever touched — would otherwise
+  // ride a stale ACTIVE snapshot for its entire duration. This thread is the
+  // backstop: it re-reads the receipt on a fixed cadence regardless of what
+  // the host is doing, so a deactivation converges within one interval even
+  // during an unattended deliver-page export.
+  //
+  // Five seconds, not sixty: a colourist deactivating mid-session to test
+  // (or a real revoke landing) should see it take effect fast enough to
+  // register as "immediate", not "eventually". The cost is one file read
+  // plus one Ed25519 verification per tick — refresh() already pays that
+  // same cost per keystroke on the fast path, so paying it once every five
+  // seconds on an idle instance is not a meaningful load.
+  void startRecheckLoop() {
+    if (!handle_ || !configured_) return;
+    stopRecheck_.store(false, std::memory_order_release);
+    try {
+      recheckWorker_ = std::thread([this]() {
+        std::unique_lock<std::mutex> lock(recheckMutex_);
+        while (!stopRecheck_.load(std::memory_order_acquire)) {
+          // wait_for returns true when the predicate is satisfied — i.e. we
+          // were woken by shutdown(), not by timeout — so that case must NOT
+          // fall through to another refresh() after the handle may already
+          // be on its way out.
+          if (recheckCv_.wait_for(
+                  lock, std::chrono::seconds(kRecheckIntervalSeconds),
+                  [this] { return stopRecheck_.load(std::memory_order_acquire); })) {
+            break;
+          }
+          refresh();
+        }
+      });
+    } catch (...) {
+      // A host that refuses one more thread degrades to the parameter-change
+      // and background-poller paths alone — worse convergence, not a crash.
+    }
+  }
+
+  static constexpr int kRecheckIntervalSeconds = 5;
+
   NexKeyRuntimeLicenseHandle *handle_ = nullptr;
   bool configured_ = false;
   std::atomic<unsigned long> syncCount_{0};
@@ -557,6 +618,10 @@ private:
   std::atomic<bool> syncInFlight_{false};
   std::atomic<long long> lastLocalReadAt_{0};
   std::thread syncWorker_;
+  std::thread recheckWorker_;
+  std::atomic<bool> stopRecheck_{false};
+  std::mutex recheckMutex_;
+  std::condition_variable recheckCv_;
 };
 
 #else // MC_NEXKEY_ENABLED
