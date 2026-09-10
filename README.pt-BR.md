@@ -19,7 +19,7 @@ aplicativo desktop usado para ativar, instalar, atualizar e gerenciar o plugin.
 
 | Plugin | Versão | Distribuição | Chave Gratuita | Apoie o Projeto |
 | --- | --- | --- | --- | --- |
-| Color Equalizer | Atual | OpenKey | [Obter Chave](https://bridge.mcnexus.app/github/claim?t=colorequalizer-oss&tmpl=bf1b283c-c8ed-4608-91a9-348a342a55a4&sig=67251aabd72f21ba) | [Torne-se um Apoiador](https://bridge.mcnexus.app/commerce/start?t=colorequalizer-oss&offer=color-equalizer-supporter) |
+| Color Equalizer | Atual | OpenKey | [Obter Chave](https://get.mcnexus.app/color-equalizer?utm_source=github&utm_medium=readme&utm_content=colorequalizer-pt) | [Torne-se um Apoiador](https://buy.mcnexus.app/color-equalizer?utm_source=github&utm_medium=readme&utm_content=colorequalizer-pt) |
 
 ## Color Equalizer
 
@@ -123,7 +123,7 @@ e atualizar uma chave existente. Não é necessário obter a chave gratuita ante
 do checkout; usuários existentes devem usar a mesma conta GitHub e o mesmo
 e-mail verificado.
 
-[Comprar Color Equalizer Supporter](https://bridge.mcnexus.app/commerce/start?t=colorequalizer-oss&offer=color-equalizer-supporter)
+[Comprar Color Equalizer Supporter](https://buy.mcnexus.app/color-equalizer?utm_source=github&utm_medium=readme&utm_content=colorequalizer-pt)
 
 Antes de comprar, leia os
 [Termos de Supporter](https://legal.magnociqueira.com.br/pt-BR/products/color-equalizer/terms/),
