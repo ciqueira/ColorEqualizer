@@ -73,7 +73,7 @@
 #define kParamLumMaster "lumMaster"
 #define kParamAboutHelp "aboutHelp"
 #define kParamAppMCNexus "appMCNexus"
-#define kParamNoticeText "noticeText"
+#define kParamNoticeText "Update Plugin"
 #define kParamNoticeUpdate "noticeUpdate"
 #define kParamNoticeOpenNexus "noticeOpenNexus"
 #define kParamLicenseRefreshBtn "licenseRefreshBtn"
@@ -432,6 +432,9 @@ private:
 
   // Guards against publishNotice()'s own writes re-entering changedParam.
   bool m_Publishing = false;
+  // Set by the Refresh License button only. It is the one user edit allowed
+  // to touch the notice group — see changedParam().
+  bool m_RepublishNotice = false;
   mc::Notices m_Notices;
   OFX::GroupParam *m_NoticeGroup = nullptr;
   OFX::StringParam *m_NoticeText = nullptr;
@@ -477,9 +480,11 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   // the disk reads all happen here so render() only ever does an atomic load.
   m_License.start();
 
-  // Starts the first update check and does not wait for it. Whatever comes
-  // back lands on screen at the next InstanceChanged — OFX offers no timer
-  // and parameters may only be written from the UI thread.
+  // Starts the update check. The answer is collected at the END of this
+  // constructor, by waitForCheck() — not at the next InstanceChanged, which
+  // was the earlier design and never arrived without somebody touching the
+  // panel. Only the request is here: the fetch* calls below run while the
+  // network works.
   //
   // The host identifies itself so notices scoped to a host and version can
   // match. Passed through verbatim: which string Resolve reports is not
@@ -515,6 +520,19 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   m_LumMaster = fetchDoubleParam(kParamLumMaster);
   for (int i = 0; i < 10; i++)
     m_Lum[i] = fetchDoubleParam(kLumNames[i]);
+
+  // Collect the check fired above before painting anything.
+  //
+  // WITHOUT THIS THE GROUP IS ALWAYS BORN HIDDEN. publishNotice() read the
+  // snapshot in the same millisecond request_check() left, while the status
+  // is still CHECKING — measured 12/09/2026 against the live gateway, the
+  // answer takes 74 to 391 ms. The panel only converged when somebody moved
+  // a control, because changedParam was the only republisher, which made the
+  // notice look like the slider had summoned it.
+  //
+  // Once per process: the handle is shared (MCNotice.h), so the second
+  // instance onwards finds the answer already there and does not wait.
+  m_Notices.waitForCheck(mc::kCheckWaitBudgetMs);
 
   // Publishing comes LAST, after every fetch above: applyLicenseGate() writes
   // to all of them, and the earlier version of this constructor published
@@ -596,6 +614,18 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
     // server able to restore it, now resolves on the next parameter change,
     // since every one of them re-reads the receipt.
     m_License.syncNowAsync();
+
+    // Forced: this is the one button that asks for a real check, so honouring
+    // the SDK's own schedule would make the click do nothing most of the
+    // time it is pressed. §UX 12/09/2026.
+    m_Notices.poke(true);
+
+    // And wait for it. Without this the click hit the SAME race as the
+    // constructor: it asked for a check and published in the same instant,
+    // with the status still CHECKING, so the button never showed the answer
+    // it had just asked for.
+    m_Notices.waitForCheck(mc::kCheckWaitBudgetMs);
+    m_RepublishNotice = true;
   }
 #ifdef MC_NEXKEY_DIAGNOSTICS
   else if (p_ParamName == kParamLicenseSync "Btn") {
@@ -611,11 +641,12 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
   }
 #endif
 
-  // Every USER change, not just the ones above. This is the only moment OFX
-  // offers to consume an update check that finished on a background thread:
-  // there is no idle callback, and parameters may not be written from the
-  // worker. Cheap — reading two snapshots and, at most, hiding or showing a
-  // group.
+  // From here down, THE LICENCE GATE ONLY. The update check no longer comes
+  // through here: waitForCheck() collects it, in the constructor and on the
+  // Refresh button. What is left is the local verdict, which changes on its
+  // own — a revoke landing on the SDK's poller thread — and OFX allows
+  // parameters to be written from the UI thread only, so any InstanceChanged
+  // will do as a hook.
   //
   // eChangeUserEdit only. eChangePluginEdit is this function's own writes
   // coming back, and eChangeTime fires on every frame of playback — republishing
@@ -638,11 +669,25 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
   // and the person sitting in front of an unlicensed plugin has no reason to
   // press it. Rate limited inside, so dragging a slider does not turn into a
   // file read per movement.
+  const bool gateWas = m_GateHidden;
   m_License.refreshIfStale();
-
-  m_Notices.poke();
   applyLicenseGate();
-  publishNotice();
+
+  // TOUCHING A CONTROL DOES NOT TOUCH THE NOTICE. Every user edit used to
+  // republish, and because the load-time check only landed after the
+  // constructor had finished, the group appeared on the first slider moved —
+  // the slider caused nothing, it was merely the first UI-thread event to
+  // arrive after the answer. The notice now has exactly two triggers: load
+  // (constructor and beginEdit) and the Refresh License button.
+  //
+  // The exception is the licence verdict flipping mid-session: with no
+  // licence the group goes quiet (publishNotice() reads allowed()), and
+  // leaving "a new version is available" on screen while every other control
+  // disappears would be worse than republishing.
+  if (m_RepublishNotice || m_GateHidden != gateWas) {
+    publishNotice();
+    m_RepublishNotice = false;
+  }
 #ifdef MC_NEXKEY_DIAGNOSTICS
   publishLicenseReport();
 #endif
@@ -672,6 +717,11 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
 // in MCLicense.h, which runs whether or not anyone is watching. The two cover
 // different halves and neither replaces the other.
 void MCColorEqualizerPlugin::beginEdit(void) {
+  // Safety net for the constructor: if the load-time check overran its budget
+  // (slow network, cold process) it may have landed by now. When no check is
+  // in flight — the normal case — this returns immediately.
+  m_Notices.waitForCheck(mc::kCheckWaitBudgetMs);
+
   // Same re-entrancy guard as changedParam: every write below is delivered
   // back to us as an InstanceChanged.
   m_Publishing = true;
@@ -1034,8 +1084,14 @@ void MCColorEqualizerFactory::describeInContext(
   // may need to act on, and it is absent the rest of the time — so it costs
   // nothing to put it where it will be seen when it does show up.
   {
+    // Titled "Update Plugin", not "Notice" — decided 12/09/2026, true as long
+    // as the notice channel stays off (MC_NEXKEY_NOTICE_CHANNEL is not
+    // defined for this build): today this group never shows anything besides
+    // "a new version exists". Turning the notice channel on later
+    // (compatibility, security) would make this title wrong for those cases
+    // and needs revisiting then.
     OFX::GroupParamDescriptor *grp = p_Desc.defineGroupParam("grpNotice");
-    grp->setLabels("Notice", "Notice", "Notice");
+    grp->setLabels("Latest Release", "Latest Release", "Latest Release");
     grp->setOpen(true);   // if it is showing at all, it has something to say
     grp->setIsSecret(true);
     page->addChild(*grp);
@@ -1066,6 +1122,14 @@ void MCColorEqualizerFactory::describeInContext(
     openNexus->setIsSecret(true);
     openNexus->setParent(*grp);
     page->addChild(*openNexus);
+
+    // Breathing room before the next section — requested 12/09/2026.
+    // gSkipRow is OFX's own pseudo-parameter (kOfxParamPageSkipRow in the
+    // spec, exposed by the Support library), not a real param: it never
+    // shows up in fetchXParam, never gets saved in a project. Each call adds
+    // one row of blank space in the host; adjusting the amount is just
+    // repeating or removing this line.
+    page->addChild(OFX::PageParamDescriptor::gSkipRow);
   }
 
   // ════════════════════════════════════════════════════════════════════

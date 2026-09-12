@@ -27,7 +27,10 @@
 
 #include "MCLicense.h"
 
+#include <chrono>
+#include <mutex>
 #include <string>
+#include <thread>
 
 namespace mc {
 
@@ -45,6 +48,18 @@ struct NoticeView {
   bool offerUpdate = false;      // "Update" — there is a release to install
   bool offerOpenNexus = false;   // "Open MCNexus" — go sort the licence out
 };
+
+// How long the UI thread is allowed to wait for a check that is in flight.
+//
+// Measured against the real gateway on 12/09/2026, replaying the constructor's
+// exact sequence: the answer lands in 74, 86, 99, 121, 298 and 391 ms across
+// six runs — the tail is a cold process paying DNS and TLS. 400 ms covers the
+// normal case and gives up on the rest rather than holding the host hostage.
+//
+// It is never zero, which is the whole point: publishNotice() used to read the
+// snapshot in the same millisecond request_check() fired it, so the group was
+// always painted from a CHECKING state and stayed hidden. See waitForCheck().
+constexpr int kCheckWaitBudgetMs = 400;
 
 #ifdef MC_NEXKEY_ENABLED
 
@@ -130,7 +145,16 @@ inline ActiveItem chooseActiveItem(bool haveNotice,
   return haveNotice ? ActiveItem::Notice : ActiveItem::None;
 }
 
-// Owns the update handle for the lifetime of one plugin instance.
+// Holds a reference to the process-wide update handle.
+//
+// ONE HANDLE PER PROCESS, NOT PER INSTANCE — changed 12/09/2026. Each instance
+// used to own a handle, so a grade with eight Color Equalizer nodes fired eight
+// identical manifest requests and each one raced the panel on its own.
+// SPEC_UPDATES_NOTICES.md §6 already says the state "é compartilhado entre as
+// instâncias do mesmo plugin no processo"; it simply was not. Sharing it also
+// means the check is paid for once: instance two onwards reads an answer that
+// has already landed and never waits.
+//
 // Non-copyable for the same reason License is: destroy() joins the SDK's
 // worker, and doing that twice inside a host is a crash, not a leak.
 class Notices {
@@ -160,10 +184,22 @@ public:
   // guess would silently match nothing.
   void start(OpenUrlFn opener, const char *hostName, const char *hostVersion) {
     if (handle_) return;
-    opener_ = opener;
 
     const char *baseUrl = MC_NEXKEY_BASE_URL;
     if (!baseUrl || baseUrl[0] == '\0') return;  // nothing to talk to
+
+    Shared &state = shared();
+    std::lock_guard<std::mutex> lock(state.mutex);
+
+    // Somebody else already built it. Take a reference and read their answer —
+    // no second request, and nothing to wait for if their check has landed.
+    if (state.handle) {
+      ++state.refs;
+      handle_ = state.handle;
+      return;
+    }
+
+    state.opener = opener;
 
     NexKeyRuntimeConfig config;
     nexkeyruntime_config_init(&config);
@@ -182,32 +218,96 @@ public:
     if (hostVersion && hostVersion[0] != '\0') config.host_version = hostVersion;
     config.can_open_url = &Notices::canOpenUrl;
     config.open_url = &Notices::openUrl;
-    config.user_data = this;
+    // The SHARED state, never `this`. The handle outlives the instance that
+    // created it — the SDK would otherwise call openUrl through a dangling
+    // pointer the moment that first node is deleted and a second one presses
+    // Update.
+    config.user_data = &state;
 
-    handle_ = nexkeyruntime_create(&config);
-    if (!handle_) return;
+    state.handle = nexkeyruntime_create(&config);
+    if (!state.handle) return;
+    state.refs = 1;
+    handle_ = state.handle;
 
-    // Fire the first check immediately and never wait for it. OFX has no idle
-    // callback and parameters may only be written from the UI thread, so the
-    // result is picked up on the next safe main-thread moment — an
-    // InstanceChanged, a slider move — exactly as the spec's "Limitação da
-    // API OFX" prescribes. First open on a cold install therefore tends to
-    // show nothing, which is the honest outcome and not a bug to paper over.
+    // Fire the ONLY automatic check this process makes. It runs on the SDK's
+    // own worker; the caller collects the answer through waitForCheck() before
+    // it paints, because OFX has no idle callback and there is nothing else
+    // that would hand the panel a second chance.
     nexkeyruntime_request_check(handle_, 0);
+  }
+
+  // Waits, for at most budgetMs, on whatever check is in flight.
+  //
+  // THIS BLOCKS THE UI THREAD, deliberately, against the letter of
+  // SPEC_UPDATES_NOTICES.md §6 ("nunca bloquear a criação do plugin esperando
+  // rede"). The rule was written assuming the design in §5.1 — "apresente
+  // imediatamente o cache" — and that cache does not exist: there is no file
+  // I/O anywhere in nexkeyruntime.cpp, so every host load starts blind and
+  // "paint the cache now, collect the network later" paints nothing, forever,
+  // until some unrelated event happens to arrive after the answer.
+  //
+  // What the rule is really protecting is a host stalled once per node while a
+  // project loads. The shared handle above removes that: the check is fired
+  // once per process, so this waits once per process too — every later
+  // instance finds a status that is no longer CHECKING and returns at once.
+  //
+  // Returns true when the check settled inside the budget. A false is not an
+  // error worth reporting: an answer that did not arrive in time is
+  // indistinguishable, to the panel, from one that says there is no news.
+  bool waitForCheck(int budgetMs) {
+    if (!handle_) return false;
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(budgetMs);
+    for (;;) {
+      NexKeyRuntimeUpdateSnapshot snapshot{};
+      snapshot.struct_size = sizeof(snapshot);
+      // request_check() sets CHECKING under its own lock BEFORE it spawns the
+      // worker, so there is no window where a check is running and the status
+      // still says otherwise. Anything but CHECKING means settled — including
+      // the early return it makes when the schedule says not yet.
+      if (nexkeyruntime_get_snapshot(handle_, &snapshot) != NEXKEYRUNTIME_OK ||
+          snapshot.status != NEXKEYRUNTIME_UPDATE_CHECKING) {
+        return true;
+      }
+      if (std::chrono::steady_clock::now() >= deadline) return false;
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
   }
 
   void shutdown() {
     if (!handle_) return;
-    // Cancels an in-flight fetch and joins the worker before returning, so
-    // the host may unload this bundle the moment it does.
-    nexkeyruntime_destroy(handle_);
     handle_ = nullptr;
+
+    Shared &state = shared();
+    NexKeyRuntimeHandle *doomed = nullptr;
+    {
+      std::lock_guard<std::mutex> lock(state.mutex);
+      if (--state.refs > 0) return;  // other nodes still hold it
+      doomed = state.handle;
+      state.handle = nullptr;
+    }
+    // Outside the lock on purpose: destroy() cancels an in-flight fetch and
+    // JOINS the worker, which can take as long as the 5 s request timeout.
+    // Holding the mutex across that would stall every other instance's view()
+    // for the same 5 s, on the UI thread, to no purpose.
+    nexkeyruntime_destroy(doomed);
   }
 
   // Nudges a fresh check. Cheap and non-blocking: the SDK refuses with BUSY
   // if one is already running, and honours its own schedule unless forced.
-  void poke() {
-    if (handle_) nexkeyruntime_request_check(handle_, 0);
+  //
+  // `force` exists for the one place a user explicitly asks for a check —
+  // the Refresh License button — where honouring the schedule would mean the
+  // button does nothing most of the time it is pressed.
+  //
+  // THE REFRESH BUTTON IS THE ONLY CALLER (§UX 12/09/2026). Poking on every
+  // slider touch made the notice pop up mid-session with no visible trigger,
+  // which read as a bug even though every check was legitimate. So this
+  // process makes exactly two kinds of check: the one start() fires at load,
+  // and the one a user asks for by name. Both are followed by waitForCheck(),
+  // because a check nobody collects is a check that changes nothing.
+  void poke(bool force = false) {
+    if (handle_) nexkeyruntime_request_check(handle_, force ? 1 : 0);
   }
 
   // Opens whatever the visible item points at.
@@ -315,13 +415,30 @@ private:
   }
 
   static int openUrl(void *userData, const char *url) {
-    Notices *self = static_cast<Notices *>(userData);
-    if (!self || !self->opener_ || !url || url[0] == '\0') return 0;
-    return self->opener_(url);
+    Shared *state = static_cast<Shared *>(userData);
+    if (!state || !state->opener || !url || url[0] == '\0') return 0;
+    return state->opener(url);
   }
 
+  // The one handle, and the count of instances still pointing at it. Written
+  // under the mutex; `opener` is set once, before the handle exists, and is
+  // the same free function for every instance.
+  struct Shared {
+    std::mutex mutex;
+    NexKeyRuntimeHandle *handle = nullptr;
+    int refs = 0;
+    OpenUrlFn opener = nullptr;
+  };
+
+  static Shared &shared() {
+    static Shared state;
+    return state;
+  }
+
+  // Non-owning. Non-null exactly when this instance holds a reference, which
+  // is what keeps the pointer alive without re-reading the shared state: the
+  // refcount cannot reach zero while we are counted in it.
   NexKeyRuntimeHandle *handle_ = nullptr;
-  OpenUrlFn opener_ = nullptr;
 };
 
 #else // MC_NEXKEY_ENABLED
@@ -333,7 +450,8 @@ public:
   using OpenUrlFn = int (*)(const char *url);
   void start(OpenUrlFn, const char *, const char *) {}
   void shutdown() {}
-  void poke() {}
+  bool waitForCheck(int budgetMs) { (void)budgetMs; return false; }
+  void poke(bool force = false) { (void)force; }
   void openAction() {}
   NoticeView view() const { return NoticeView(); }
 };
