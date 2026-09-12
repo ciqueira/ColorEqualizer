@@ -1,6 +1,6 @@
 # Color Equalizer Binary License
 
-Last updated: June 21, 2026
+Last updated: September 11, 2026
 
 Copyright (c) 2026 Magno Ciqueira. All rights reserved.
 
@@ -37,6 +37,21 @@ locally stored key does not necessarily release a remote activation.
 
 You may not share, sell, rent, sublicense, publish, or transfer a license key
 except through an authorized license-transfer process.
+
+From version 0.6.0 the plugin verifies your licence itself: it reads the
+receipt MCNexus wrote when you activated, re-reads it while it is loaded, and
+revalidates it over the internet with the MCNexus licensing service on the
+schedule the receipt carries. It keeps working offline for the grace period
+recorded in the receipt; once that period expires without a successful
+revalidation, the effect stops applying until the service can be reached
+again. The plugin also checks whether a newer release exists. No image data,
+project data, file name, or path is transmitted — see the
+[Privacy Policy](legal/PRIVACY.md) §2.1 for exactly what the requests carry.
+Builds up to 0.5.x performed no licence check of their own.
+
+There is no demo or trial edition of this plugin: the free licence you hold
+gives all currently published plugin features, with no watermark, chart, or
+time limit.
 
 ## 3. Restrictions
 

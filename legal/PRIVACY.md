@@ -2,9 +2,9 @@
 
 [English](PRIVACY.md) · [Português](pt-BR/PRIVACY.md)
 
-Last updated: July 15, 2026
+Last updated: September 11, 2026
 
-Document version: `color-equalizer-privacy-2026-08-31`
+Document version: `color-equalizer-privacy-2026-09-11`
 
 This policy describes personal-data processing specifically connected to Color
 Equalizer, its free license, the optional Supporter purchase, operational
@@ -52,6 +52,33 @@ Data is received from the user, GitHub authentication, Stripe checkout,
 MCNexus/license services, support interactions, and security or delivery logs.
 The GitHub OAuth request is limited to the identity information needed for the
 license and purchase flow; it is not intended to read private repositories.
+
+### 2.1 Processing on the licensed computer (from version 0.6.0)
+
+From version 0.6.0 the plugin verifies its own licence. Earlier versions
+performed no licence check of their own. On the machine where it is installed,
+the plugin:
+
+- **reads a licence receipt stored locally.** The receipt is written by
+  MCNexus at activation, not by the plugin, and is kept in the standard
+  per-user application data location of the operating system. The receipt
+  records the licence and activation identifiers, the edition and entitlement,
+  validity dates, and a cryptographic signature. The plugin only reads and
+  verifies it;
+- **re-reads that receipt while loaded**, so that a licence activated, changed
+  or removed elsewhere takes effect without restarting the host application;
+- **revalidates the licence over the internet** with the MCNexus licensing
+  service, on the schedule the receipt itself records, and checks whether a
+  newer release of the plugin exists. These requests carry the licence and
+  activation identifiers, the product and plugin version, the operating system
+  and architecture, and the name and version of the host application;
+- **keeps working offline** for the grace period recorded in the receipt.
+  After that period passes without a successful revalidation, the effect stops
+  applying until the service can be reached again.
+
+No image data, footage, project file, file name or path is read, transmitted
+or stored by the plugin. Licences are never activated or deactivated by the
+plugin; that happens in MCNexus.
 
 ## 3. Purposes and legal bases
 

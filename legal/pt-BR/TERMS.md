@@ -2,9 +2,9 @@
 
 [English](../TERMS.md) · [Português](TERMS.md)
 
-Última atualização: 31 de agosto de 2026
+Última atualização: 11 de setembro de 2026
 
-Versão do documento: `color-equalizer-terms-2026-08-31`
+Versão do documento: `color-equalizer-terms-2026-09-11`
 
 Vendedor e desenvolvedor do produto: **56.442.448 MAGNO DIAS CIQUEIRA**, nome
 comercial **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Endereço de
@@ -29,6 +29,21 @@ plugin publicados atualmente. Uma chave gratuita válida pode ser exigida para
 ativação, download, atualização e prevenção de abuso. Obter a chave gratuita
 não cria um benefício pago de Supporter. A licença gratuita permite uma
 ativação por vez.
+
+**A partir da versão 0.6.0** o plugin verifica a licença por conta própria. A
+verificação lê o recibo que o MCNexus gravou na ativação, relê enquanto o
+plugin está carregado, e revalida pela internet junto ao serviço de
+licenciamento do MCNexus, na periodicidade que o próprio recibo carrega.
+Continua funcionando offline pelo período de tolerância registrado no recibo;
+esgotado esse período sem revalidação bem-sucedida, o efeito deixa de ser
+aplicado até o serviço ser alcançado de novo. O plugin também verifica se
+existe versão mais nova e avisa no painel quando há. Nenhuma mídia, dado de
+projeto, nome ou caminho de arquivo é transmitido — a
+[Política de Privacidade](PRIVACY.md) §2.1 detalha o que as requisições levam.
+Builds até a 0.5.x não faziam verificação de licença própria.
+
+Não existe edition demo nem trial: a licença gratuita entrega todos os
+recursos publicados do plugin, sem marca d'água, carta ou prazo.
 
 O repositório público é *source-available*, não software de código aberto. Os
 direitos sobre fonte e binário são definidos, respectivamente, por `LICENSE.md`

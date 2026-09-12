@@ -2,9 +2,9 @@
 
 [English](../PRIVACY.md) · [Português](PRIVACY.md)
 
-Última atualização: 31 de agosto de 2026
+Última atualização: 11 de setembro de 2026
 
-Versão do documento: `color-equalizer-privacy-2026-08-31`
+Versão do documento: `color-equalizer-privacy-2026-09-11`
 
 Esta política descreve o tratamento de dados pessoais ligado especificamente
 ao Color Equalizer, à licença gratuita, à compra opcional de Supporter, ao
@@ -54,6 +54,33 @@ Os dados são obtidos do usuário, autenticação GitHub, checkout Stripe,
 MCNexus/serviços de licença, interações de suporte e logs de segurança ou
 entrega. O OAuth GitHub é limitado às informações de identidade necessárias à
 licença e à compra; ele não tem a finalidade de ler repositórios privados.
+
+### 2.1 Tratamento no computador licenciado (a partir da versão 0.6.0)
+
+A partir da versão 0.6.0 o plugin verifica a própria licença. Versões
+anteriores não faziam verificação de licença própria. Na máquina em que está
+instalado, o plugin:
+
+- **lê um recibo de licença armazenado localmente.** O recibo é escrito pelo
+  MCNexus na ativação, não pelo plugin, e fica no local padrão de dados de
+  aplicativo por usuário do sistema operacional. O recibo registra os
+  identificadores de licença e de ativação, a edition e o entitlement, datas
+  de validade e uma assinatura criptográfica. O plugin apenas lê e verifica;
+- **relê esse recibo enquanto está carregado**, para que uma licença ativada,
+  alterada ou removida em outro lugar passe a valer sem reiniciar o aplicativo
+  hospedeiro;
+- **revalida a licença pela internet** junto ao serviço de licenciamento do
+  MCNexus, na periodicidade que o próprio recibo registra, e verifica se
+  existe versão mais nova do plugin. Essas requisições levam os identificadores
+  de licença e de ativação, o produto e a versão do plugin, o sistema
+  operacional e a arquitetura, e o nome e a versão do aplicativo hospedeiro;
+- **continua funcionando offline** pelo período de tolerância registrado no
+  recibo. Passado esse período sem uma revalidação bem-sucedida, o efeito
+  deixa de ser aplicado até o serviço ser alcançado de novo.
+
+Nenhum dado de imagem, filmagem, arquivo de projeto, nome ou caminho de
+arquivo é lido, transmitido ou armazenado pelo plugin. Licenças nunca são
+ativadas nem desativadas pelo plugin; isso acontece no MCNexus.
 
 ## 3. Finalidades e bases legais
 

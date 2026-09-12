@@ -2,9 +2,9 @@
 
 [English](TERMS.md) · [Português](pt-BR/TERMS.md)
 
-Last updated: July 15, 2026
+Last updated: September 11, 2026
 
-Document version: `color-equalizer-terms-2026-08-31`
+Document version: `color-equalizer-terms-2026-09-11`
 
 Seller and product developer: **56.442.448 MAGNO DIAS CIQUEIRA**, trade name
 **Magno Dias Ciqueira**, CNPJ **56.442.448/0001-10**. Service address: Avenida
@@ -27,6 +27,20 @@ Color Equalizer remains available free of charge with all currently published
 plugin features. A valid free license key may be required for activation,
 download, update, and abuse prevention. Obtaining a free key does not create a
 paid Supporter benefit. The free license permits one activation at a time.
+
+**From version 0.6.0** the plugin verifies the licence itself. It reads the
+receipt MCNexus wrote when the licence was activated, re-reads it while it is
+loaded, and revalidates over the internet with the MCNexus licensing service
+on the schedule the receipt carries. It keeps working offline for the grace
+period recorded in the receipt; once that period expires without a successful
+revalidation, the effect stops applying until the service can be reached
+again. The plugin also checks whether a newer release exists, and says so in
+the panel when there is one. No media, project data, file name or path is
+transmitted — see the [Privacy Policy](PRIVACY.md) §2.1 for exactly what the
+requests carry. Builds up to 0.5.x performed no licence check of their own.
+
+There is no demo or trial edition: the free licence gives all currently
+published plugin features, with no watermark, chart or time limit.
 
 The public source repository is source-available, not open-source software.
 Source and binary rights are defined respectively by `LICENSE.md` and
