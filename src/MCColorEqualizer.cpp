@@ -1043,6 +1043,7 @@ void MCColorEqualizerFactory::describe(OFX::ImageEffectDescriptor &p_Desc) {
   p_Desc.setTemporalClipAccess(false);
   p_Desc.setRenderTwiceAlways(false);
   p_Desc.setSupportsMultipleClipPARs(kSupportsMultipleClipPARs);
+  p_Desc.getPropertySet().propSetString(kOfxImageEffectPropNoSpatialAwareness, "true");
 
 #ifdef __APPLE__
   p_Desc.setSupportsMetalRender(true);
