@@ -194,7 +194,7 @@ inline const char *statusName(NexKeyRuntimeLicenseStatus status) {
 // come out different (§3.12).
 inline std::string receiptsDirectory() {
 #if defined(_WIN32)
-  const char *base = std::getenv("LOCALAPPDATA");
+  const char *base = std::getenv("PROGRAMDATA");
   if (!base || base[0] == '\0') return std::string();
   return std::string(base) + "\\NexKeyRuntime\\" MC_NEXKEY_TENANT "\\receipts";
 #else
