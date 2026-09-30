@@ -88,6 +88,9 @@ struct LicenseReport {
 #ifndef MC_NEXKEY_TENANT
 #define MC_NEXKEY_TENANT "colorequalizer-oss"
 #endif
+#ifndef MC_NEXKEY_SCOPE
+#define MC_NEXKEY_SCOPE NEXKEYRUNTIME_SCOPE_USER
+#endif
 #ifndef MC_NEXKEY_VARIANT
 #define MC_NEXKEY_VARIANT "download:default"
 #endif
@@ -271,6 +274,7 @@ public:
       configured_ = false;
       return;
     }
+    nexkeyruntime_license_set_scope(handle_, MC_NEXKEY_SCOPE);
     nexkeyruntime_license_set_tenant_id(handle_, MC_NEXKEY_TENANT);
     nexkeyruntime_license_set_variant(handle_, MC_NEXKEY_VARIANT);
     nexkeyruntime_license_set_metadata(handle_, "appVersion", PLUGIN_VERSION);
