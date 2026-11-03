@@ -197,14 +197,22 @@ inline const char *statusName(NexKeyRuntimeLicenseStatus status) {
 // come out different (§3.12).
 inline std::string receiptsDirectory() {
 #if defined(_WIN32)
+#if defined(MC_NEXKEY_SCOPE) && (MC_NEXKEY_SCOPE == NEXKEYRUNTIME_SCOPE_SYSTEM)
   const char *base = std::getenv("PROGRAMDATA");
+#else
+  const char *base = std::getenv("LOCALAPPDATA");
+#endif
   if (!base || base[0] == '\0') return std::string();
   return std::string(base) + "\\NexKeyRuntime\\" MC_NEXKEY_TENANT "\\receipts";
+#else
+#if defined(MC_NEXKEY_SCOPE) && (MC_NEXKEY_SCOPE == NEXKEYRUNTIME_SCOPE_SYSTEM)
+  return "/Library/Application Support/NexKeyRuntime/" MC_NEXKEY_TENANT "/receipts";
 #else
   const char *home = std::getenv("HOME");
   if (!home || home[0] == '\0') return std::string();
   return std::string(home) +
          "/Library/Application Support/NexKeyRuntime/" MC_NEXKEY_TENANT "/receipts";
+#endif
 #endif
 }
 
