@@ -592,7 +592,7 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   // Sync Node ID for MCNexus AXUIElement Inspector Tracker
   m_InstanceInfo = fetchStringParam("instance_info");
   if (m_InstanceInfo && m_nexcontrolBinding) {
-    std::string info = "ID: " + std::to_string(m_nexcontrolBinding->instance_id()) + " | Active";
+    std::string info = "Connected (ID: " + std::to_string(m_nexcontrolBinding->instance_id()) + ")";
     try { m_InstanceInfo->setValue(info); } catch (...) {}
   }
 }
@@ -1323,6 +1323,16 @@ void MCColorEqualizerFactory::describeInContext(
 #endif
     appMCNexus->setParent(*grp);
     page->addChild(*appMCNexus);
+
+    OFX::StringParamDescriptor *instParam =
+        p_Desc.defineStringParam("instance_info");
+    instParam->setLabels("NexControl Hub", "NexControl", "NexControl");
+    instParam->setStringType(OFX::eStringTypeSingleLine);
+    instParam->setDefault("Disconnected");
+    instParam->setEnabled(false);
+    instParam->setIsPersistant(false);
+    instParam->setParent(*grp);
+    page->addChild(*instParam);
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -1432,17 +1442,6 @@ void MCColorEqualizerFactory::describeInContext(
     page->addChild(*refresh);
   }
 #endif // MC_NEXKEY_DIAGNOSTICS
-
-  {
-    OFX::StringParamDescriptor *instParam =
-        p_Desc.defineStringParam("instance_info");
-    instParam->setLabels("MCNexus Hardware Hub", "Nexus Hub", "Nexus Hub");
-    instParam->setStringType(OFX::eStringTypeSingleLine);
-    instParam->setDefault("Inativo");
-    instParam->setEnabled(false);
-    instParam->setIsPersistant(false);
-    page->addChild(*instParam);
-  }
 }
 
 // ─── createInstance ───────────────────────────────────────────────────────
