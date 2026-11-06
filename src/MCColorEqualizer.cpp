@@ -34,6 +34,7 @@
 #include "ofxsImageEffect.h"
 #include "ofxsMultiThread.h"
 #include "ofxsProcessing.h"
+#include "nexcontrol/MCNexControl.h"
 
 // ─── Plugin identity constants ─────────────────────────────────────────────
 #ifndef PLUGIN_VERSION
@@ -371,6 +372,7 @@ private:
 class MCColorEqualizerPlugin : public OFX::ImageEffect {
 public:
   explicit MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle);
+  virtual ~MCColorEqualizerPlugin();
 
   virtual void render(const OFX::RenderArguments &p_Args) override;
   virtual bool isIdentity(const OFX::IsIdentityArguments &p_Args,
@@ -452,9 +454,18 @@ private:
   OFX::StringParam *m_LicensePath = nullptr;
   OFX::StringParam *m_DiagHost = nullptr;
 #endif
+
+  OFX::StringParam *m_InstanceInfo = nullptr;
+  std::unique_ptr<mc::nexcontrol::InstanceBinding> m_nexcontrolBinding;
 };
 
 // ─── Constructor ──────────────────────────────────────────────────────────
+
+namespace OFX {
+  namespace Private {
+    extern OfxHost *gHost;
+  }
+}
 
 MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
     : OFX::ImageEffect(p_Handle) {
@@ -549,6 +560,47 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   publishLicenseReport();
 #endif
   m_Publishing = false;
+
+  // Initialize NexControl MIDI client
+  mc::nexcontrol::init(OFX::Private::gHost, m_License.handle());
+
+  m_nexcontrolBinding = std::make_unique<mc::nexcontrol::InstanceBinding>(p_Handle);
+
+  // MCMIDI Hardware 24-slot mapping:
+  // Slot 1 (CC 10): Master Hue
+  m_nexcontrolBinding->addParam(kParamHueMaster, 1, 0.0, 2.0, 0.0, 2.0, 1.0);
+
+  // Slots 2..11 (CC 11..20): 10 Hue Bands
+  for (int i = 0; i < 10; i++) {
+    m_nexcontrolBinding->addParam(kHueNames[i], 1, -1.0, 1.0, -1.0, 1.0, 0.0);
+  }
+
+  // Slot 12 (CC 21): Master Saturation
+  m_nexcontrolBinding->addParam(kParamSatMaster, 1, 0.0, 2.0, 0.0, 2.0, 1.0);
+
+  // Slots 13..22 (CC 22..31): 10 Saturation Bands
+  for (int i = 0; i < 10; i++) {
+    m_nexcontrolBinding->addParam(kSatNames[i], 1, 0.0, 2.0, 0.0, 2.0, 1.0);
+  }
+
+  // Slot 23 (CC 32): Master Luminance
+  m_nexcontrolBinding->addParam(kParamLumMaster, 1, 0.0, 2.0, 0.0, 2.0, 1.0);
+
+  // Slot 24 (CC 33): Red Luma Band
+  m_nexcontrolBinding->addParam(kLumNames[0], 1, 0.0, 2.0, 0.0, 2.0, 1.0);
+
+  // Sync Node ID for MCNexus AXUIElement Inspector Tracker
+  m_InstanceInfo = fetchStringParam("instance_info");
+  if (m_InstanceInfo && m_nexcontrolBinding) {
+    std::string info = "ID: " + std::to_string(m_nexcontrolBinding->instance_id()) + " | Active";
+    try { m_InstanceInfo->setValue(info); } catch (...) {}
+  }
+}
+
+// ─── Destructor ───────────────────────────────────────────────────────────
+
+MCColorEqualizerPlugin::~MCColorEqualizerPlugin() {
+  m_nexcontrolBinding.reset();
 }
 
 // ─── changedParam ─────────────────────────────────────────────────────────
@@ -580,52 +632,21 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
     // a runtime label (OFX hosts are not obliged to refresh labels).
     m_Notices.openAction();
   } else if (p_ParamName == kParamLicenseRefreshBtn) {
-    // DISK FIRST, ALWAYS. Activation and deactivation both happen in another
-    // process, and both land as a change to the receipt on disk — MCNexus
-    // writes one when you activate and deletes it when you deactivate. Only
-    // load_local() notices either.
-    //
-    // The first version of this branched on allowed() before re-reading, and
-    // got the deactivation case exactly backwards: with the receipt already
-    // gone, the plugin still held an ACTIVE snapshot in memory, so allowed()
-    // said yes and the click went down the asynchronous path, which never
-    // touches the disk. Nothing happened, however many times it was pressed.
-    //
-    // Re-reading first also makes the activation case cheaper than it was:
-    // the receipt MCNexus just wrote is already there, so the controls come
-    // back without waiting for the network at all.
+    // DISK FIRST, ALWAYS. Re-le o recibo do disco imediatamente.
     m_License.refresh();
 
-    // Then confirm against the server in the background. Never blocking, in
-    // either state.
-    //
-    // The unlicensed branch used to wait up to 4s here, and that wait was
-    // worse than it looked. request_sync() hands the work to the poller and
-    // returns OK the moment one exists — which it does, because the plugin
-    // opened while still licensed — so syncNow() sat in its 80 x 50ms loop
-    // waiting for a callback that could never arrive: the poller had lost the
-    // licence key along with the receipt and gone to sleep. Four seconds of
-    // frozen host UI, on every click, for nothing.
-    //
-    // The wait is not needed any more. The case it existed for — "I just
-    // activated in MCNexus, show me" — is answered by the disk read above,
-    // because activation writes the receipt before the user can even get back
-    // to the host. The rarer case, receipt gone but key still present and the
-    // server able to restore it, now resolves on the next parameter change,
-    // since every one of them re-reads the receipt.
-    m_License.syncNowAsync();
+    // Cooldown de 3 segundos para sincronizacao de rede contra cliques repetidos
+    static std::atomic<long long> s_lastRefreshClickTime{0};
+    long long nowSec = static_cast<long long>(std::time(nullptr));
+    long long prevSec = s_lastRefreshClickTime.load(std::memory_order_relaxed);
 
-    // Forced: this is the one button that asks for a real check, so honouring
-    // the SDK's own schedule would make the click do nothing most of the
-    // time it is pressed. §UX 12/09/2026.
-    m_Notices.poke(true);
-
-    // And wait for it. Without this the click hit the SAME race as the
-    // constructor: it asked for a check and published in the same instant,
-    // with the status still CHECKING, so the button never showed the answer
-    // it had just asked for.
-    m_Notices.waitForCheck(mc::kCheckWaitBudgetMs);
-    m_RepublishNotice = true;
+    if (nowSec - prevSec >= 3) {
+      s_lastRefreshClickTime.store(nowSec, std::memory_order_relaxed);
+      m_License.syncNowAsync();
+      m_Notices.poke(true);
+      m_Notices.waitForCheck(mc::kCheckWaitBudgetMs);
+      m_RepublishNotice = true;
+    }
   }
 #ifdef MC_NEXKEY_DIAGNOSTICS
   else if (p_ParamName == kParamLicenseSync "Btn") {
@@ -1411,6 +1432,17 @@ void MCColorEqualizerFactory::describeInContext(
     page->addChild(*refresh);
   }
 #endif // MC_NEXKEY_DIAGNOSTICS
+
+  {
+    OFX::StringParamDescriptor *instParam =
+        p_Desc.defineStringParam("instance_info");
+    instParam->setLabels("MCNexus Hardware Hub", "Nexus Hub", "Nexus Hub");
+    instParam->setStringType(OFX::eStringTypeSingleLine);
+    instParam->setDefault("Inativo");
+    instParam->setEnabled(false);
+    instParam->setIsPersistant(false);
+    page->addChild(*instParam);
+  }
 }
 
 // ─── createInstance ───────────────────────────────────────────────────────

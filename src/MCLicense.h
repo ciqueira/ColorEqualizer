@@ -257,6 +257,8 @@ public:
   License(const License &) = delete;
   License &operator=(const License &) = delete;
 
+  NexKeyRuntimeLicenseHandle* handle() const noexcept { return handle_; }
+
   // Called once, off the render thread. Everything expensive — signature
   // verification, disk reads — happens here so the render path only ever
   // does an atomic load (§7.3).
