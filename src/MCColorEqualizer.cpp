@@ -1323,10 +1323,20 @@ void MCColorEqualizerFactory::describeInContext(
 #endif
     appMCNexus->setParent(*grp);
     page->addChild(*appMCNexus);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // Group: NexControl (Closed by default, dedicated group)
+  // ════════════════════════════════════════════════════════════════════
+  {
+    OFX::GroupParamDescriptor *grp = p_Desc.defineGroupParam("grpNexControl");
+    grp->setLabels("NexControl", "NexControl", "NexControl");
+    grp->setOpen(false);
+    page->addChild(*grp);
 
     OFX::StringParamDescriptor *instParam =
         p_Desc.defineStringParam("instance_info");
-    instParam->setLabels("NexControl Hub", "NexControl", "NexControl");
+    instParam->setLabels("Status", "Status", "Status");
     instParam->setStringType(OFX::eStringTypeSingleLine);
     instParam->setDefault("Node Instance (Inactive)");
     instParam->setEnabled(false);
