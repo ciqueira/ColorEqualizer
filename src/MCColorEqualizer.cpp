@@ -592,7 +592,7 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   // Sync Node ID for MCNexus AXUIElement Inspector Tracker
   m_InstanceInfo = fetchStringParam("instance_info");
   if (m_InstanceInfo && m_nexcontrolBinding) {
-    std::string info = "Connected (ID: " + std::to_string(m_nexcontrolBinding->instance_id()) + ")";
+    std::string info = "Node Instance (ID: " + std::to_string(m_nexcontrolBinding->instance_id()) + ")";
     try { m_InstanceInfo->setValue(info); } catch (...) {}
   }
 }
@@ -1328,7 +1328,7 @@ void MCColorEqualizerFactory::describeInContext(
         p_Desc.defineStringParam("instance_info");
     instParam->setLabels("NexControl Hub", "NexControl", "NexControl");
     instParam->setStringType(OFX::eStringTypeSingleLine);
-    instParam->setDefault("Disconnected");
+    instParam->setDefault("Node Instance (Inactive)");
     instParam->setEnabled(false);
     instParam->setIsPersistant(false);
     instParam->setParent(*grp);
