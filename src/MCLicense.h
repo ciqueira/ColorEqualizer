@@ -435,9 +435,17 @@ public:
     // matters, because the flag guarantees at most one is ever live.
     if (syncWorker_.joinable()) syncWorker_.join();
     try {
-      syncWorker_ = std::thread([this]() {
+      const unsigned long before = syncCount_.load(std::memory_order_acquire);
+      syncWorker_ = std::thread([this, before]() {
         const NexKeyRuntimeResult result =
             nexkeyruntime_license_request_sync(handle_, 1);
+        if (result == NEXKEYRUNTIME_OK) {
+          for (int attempt = 0; attempt < 60; ++attempt) {
+            if (stopRecheck_.load(std::memory_order_acquire)) break;
+            if (syncCount_.load(std::memory_order_acquire) != before) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+          }
+        }
         manualSyncs_.fetch_add(1, std::memory_order_acq_rel);
         lastSyncOk_.store(result == NEXKEYRUNTIME_OK, std::memory_order_release);
         lastSyncAt_.store(static_cast<long long>(std::time(nullptr)),
@@ -449,6 +457,15 @@ public:
       // forever, which is what a stuck flag would do.
       syncInFlight_.store(false, std::memory_order_release);
     }
+  }
+
+  void waitForSync(int budgetMs = 1500) {
+    const int steps = budgetMs / 25;
+    for (int i = 0; i < steps; ++i) {
+      if (!syncInFlight_.load(std::memory_order_acquire)) break;
+      std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    }
+    refresh();
   }
 
   // THE hot path. One atomic load inside the SDK, no I/O, no lock — safe to
