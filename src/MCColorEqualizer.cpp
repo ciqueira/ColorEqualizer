@@ -34,9 +34,7 @@
 #include "ofxsImageEffect.h"
 #include "ofxsMultiThread.h"
 #include "ofxsProcessing.h"
-#if MC_NEXCONTROL_ENABLED
 #include "nexcontrol/MCNexControl.h"
-#endif
 
 // ─── Plugin identity constants ─────────────────────────────────────────────
 #ifndef PLUGIN_VERSION
@@ -457,10 +455,8 @@ private:
   OFX::StringParam *m_DiagHost = nullptr;
 #endif
 
-#if MC_NEXCONTROL_ENABLED
   OFX::StringParam *m_InstanceInfo = nullptr;
   std::unique_ptr<mc::nexcontrol::InstanceBinding> m_nexcontrolBinding;
-#endif
 };
 
 // ─── Constructor ──────────────────────────────────────────────────────────
@@ -565,7 +561,6 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
 #endif
   m_Publishing = false;
 
-#if MC_NEXCONTROL_ENABLED
   // Initialize NexControl MIDI client
   mc::nexcontrol::init(OFX::Private::gHost, m_License.handle());
 
@@ -600,15 +595,12 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
     std::string info = "Node Instance (ID: " + std::to_string(m_nexcontrolBinding->instance_id()) + ")";
     try { m_InstanceInfo->setValue(info); } catch (...) {}
   }
-#endif
 }
 
 // ─── Destructor ───────────────────────────────────────────────────────────
 
 MCColorEqualizerPlugin::~MCColorEqualizerPlugin() {
-#if MC_NEXCONTROL_ENABLED
   m_nexcontrolBinding.reset();
-#endif
 }
 
 // ─── changedParam ─────────────────────────────────────────────────────────
@@ -1334,7 +1326,6 @@ void MCColorEqualizerFactory::describeInContext(
     page->addChild(*appMCNexus);
   }
 
-#if MC_NEXCONTROL_ENABLED
   // ════════════════════════════════════════════════════════════════════
   // Group: NexControl (Closed by default, dedicated group)
   // ════════════════════════════════════════════════════════════════════
@@ -1354,7 +1345,6 @@ void MCColorEqualizerFactory::describeInContext(
     instParam->setParent(*grp);
     page->addChild(*instParam);
   }
-#endif
 
   // ════════════════════════════════════════════════════════════════════
   // Group: License — DIAGNOSTICS ONLY (build with NEXKEY_DIAGNOSTICS=1)
