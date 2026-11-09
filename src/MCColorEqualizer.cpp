@@ -34,7 +34,7 @@
 #include "ofxsImageEffect.h"
 #include "ofxsMultiThread.h"
 #include "ofxsProcessing.h"
-#include "nexcontrol/MCNexControl.h"
+#include "MCNexControl.h"
 
 // ─── Plugin identity constants ─────────────────────────────────────────────
 #ifndef PLUGIN_VERSION
