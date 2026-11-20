@@ -14,8 +14,8 @@ class MCColorEqualizerFactory
 {
 public:
     MCColorEqualizerFactory();
-    virtual void load()   {}
-    virtual void unload() {}
+    virtual void load() override;
+    virtual void unload() override;
     virtual void describe(OFX::ImageEffectDescriptor& p_Desc);
     virtual void describeInContext(OFX::ImageEffectDescriptor& p_Desc,
                                    OFX::ContextEnum p_Context);

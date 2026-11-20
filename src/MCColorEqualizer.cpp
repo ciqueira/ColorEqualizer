@@ -1051,6 +1051,16 @@ MCColorEqualizerFactory::MCColorEqualizerFactory()
     : OFX::PluginFactoryHelper<MCColorEqualizerFactory>(
           kPluginIdentifier, kPluginVersionMajor, kPluginVersionMinor) {}
 
+void MCColorEqualizerFactory::load() {
+  if (OFX::Private::gHost) {
+    mc::nexcontrol::init(OFX::Private::gHost, nullptr);
+  }
+}
+
+void MCColorEqualizerFactory::unload() {
+  mc::nexcontrol::shutdown();
+}
+
 // ─── describe ─────────────────────────────────────────────────────────────
 
 void MCColorEqualizerFactory::describe(OFX::ImageEffectDescriptor &p_Desc) {
