@@ -562,7 +562,9 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   m_Publishing = false;
 
   // Initialize NexControl MIDI client
-  mc::nexcontrol::init(OFX::Private::gHost, m_License.handle());
+  if (OFX::Private::gHost) {
+    mc::nexcontrol::init(OFX::Private::gHost, m_License.handle());
+  }
 
   m_nexcontrolBinding = std::make_unique<mc::nexcontrol::InstanceBinding>(p_Handle);
 
@@ -593,7 +595,9 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
   m_InstanceInfo = fetchStringParam("instance_info");
   if (m_InstanceInfo && m_nexcontrolBinding) {
     std::string info = "Node Instance (ID: " + std::to_string(m_nexcontrolBinding->instance_id()) + ")";
+    m_Publishing = true;
     try { m_InstanceInfo->setValue(info); } catch (...) {}
+    m_Publishing = false;
   }
 }
 
