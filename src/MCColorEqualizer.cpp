@@ -1213,6 +1213,7 @@ void MCColorEqualizerFactory::describeInContext(
     master->setRange(0.0, 2.0);
     master->setDisplayRange(0.0, 2.0);
     master->setIncrement(0.01);
+    master->setDigits(3);
     master->setDoubleType(OFX::eDoubleTypePlain);
     master->setParent(*grp);
     page->addChild(*master);
@@ -1224,6 +1225,7 @@ void MCColorEqualizerFactory::describeInContext(
       p->setRange(-1.0, 1.0);
       p->setDisplayRange(-1.0, 1.0);
       p->setIncrement(0.01);
+      p->setDigits(3);
       p->setDoubleType(OFX::eDoubleTypePlain);
       p->setParent(*grp);
       page->addChild(*p);
@@ -1248,6 +1250,7 @@ void MCColorEqualizerFactory::describeInContext(
     master->setRange(0.0, 2.0);
     master->setDisplayRange(0.0, 2.0);
     master->setIncrement(0.01);
+    master->setDigits(3);
     master->setDoubleType(OFX::eDoubleTypePlain);
     master->setParent(*grp);
     page->addChild(*master);
@@ -1259,6 +1262,7 @@ void MCColorEqualizerFactory::describeInContext(
       p->setRange(0.0, 2.0);
       p->setDisplayRange(0.0, 2.0);
       p->setIncrement(0.01);
+      p->setDigits(3);
       p->setDoubleType(OFX::eDoubleTypePlain);
       p->setParent(*grp);
       page->addChild(*p);
@@ -1284,6 +1288,7 @@ void MCColorEqualizerFactory::describeInContext(
     master->setRange(0.0, 2.0);
     master->setDisplayRange(0.0, 2.0);
     master->setIncrement(0.01);
+    master->setDigits(3);
     master->setDoubleType(OFX::eDoubleTypePlain);
     master->setParent(*grp);
     page->addChild(*master);
@@ -1295,6 +1300,7 @@ void MCColorEqualizerFactory::describeInContext(
       p->setRange(0.0, 2.0);
       p->setDisplayRange(0.0, 2.0);
       p->setIncrement(0.01);
+      p->setDigits(3);
       p->setDoubleType(OFX::eDoubleTypePlain);
       p->setParent(*grp);
       page->addChild(*p);
