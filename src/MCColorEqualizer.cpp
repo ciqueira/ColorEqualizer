@@ -568,28 +568,35 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
 
   m_nexcontrolBinding = std::make_unique<mc::nexcontrol::InstanceBinding>(p_Handle);
 
-  // MCMIDI Hardware 24-slot mapping:
-  // Slot 1 (CC 10): Master Hue
-  m_nexcontrolBinding->addParam(kParamHueMaster, 1, 0.0, 2.0, 0.0, 2.0, 1.0);
+  {
+    auto batch = m_nexcontrolBinding->beginBatch();
 
-  // Slots 2..11 (CC 11..20): 10 Hue Bands
-  for (int i = 0; i < 10; i++) {
-    m_nexcontrolBinding->addParam(kHueNames[i], 1, -1.0, 1.0, -1.0, 1.0, 0.0);
+    auto hueGroup = m_nexcontrolBinding->beginGroup(
+        "Hue Equalizer", mc::nexcontrol::GroupLayout::DedicatedBank);
+    hueGroup.addParam(kParamHueMaster, NEXCONTROL_PARAM_DOUBLE, 0.0, 2.0, 0.0, 2.0, 1.0, true);
+    for (int i = 0; i < 10; i++) {
+      hueGroup.addParam(
+          kHueNames[i], NEXCONTROL_PARAM_DOUBLE, -1.0, 1.0, -1.0, 1.0, 0.0,
+          false, NEXCONTROL_PARAM_FLAG_BIPOLAR);
+    }
+
+    auto satGroup = m_nexcontrolBinding->beginGroup(
+        "Saturation Equalizer", mc::nexcontrol::GroupLayout::DedicatedBank);
+    satGroup.addParam(kParamSatMaster, NEXCONTROL_PARAM_DOUBLE, 0.0, 2.0, 0.0, 2.0, 1.0, true);
+    for (int i = 0; i < 10; i++) {
+      satGroup.addParam(kSatNames[i], NEXCONTROL_PARAM_DOUBLE, 0.0, 2.0, 0.0, 2.0, 1.0);
+    }
+
+    auto lumGroup = m_nexcontrolBinding->beginGroup(
+        "Brightness Equalizer", mc::nexcontrol::GroupLayout::DedicatedBank);
+    lumGroup.addParam(kParamLumMaster, NEXCONTROL_PARAM_DOUBLE, 0.0, 2.0, 0.0, 2.0, 1.0, true);
+    for (int i = 0; i < 10; i++) {
+      lumGroup.addParam(kLumNames[i], NEXCONTROL_PARAM_DOUBLE, 0.0, 2.0, 0.0, 2.0, 1.0);
+    }
+
+    m_nexcontrolBinding->addParam(
+        kParamSpaceType, NEXCONTROL_PARAM_CHOICE, 0.0, 2.0, 0.0, 2.0, 1.0);
   }
-
-  // Slot 12 (CC 21): Master Saturation
-  m_nexcontrolBinding->addParam(kParamSatMaster, 1, 0.0, 2.0, 0.0, 2.0, 1.0);
-
-  // Slots 13..22 (CC 22..31): 10 Saturation Bands
-  for (int i = 0; i < 10; i++) {
-    m_nexcontrolBinding->addParam(kSatNames[i], 1, 0.0, 2.0, 0.0, 2.0, 1.0);
-  }
-
-  // Slot 23 (CC 32): Master Luminance
-  m_nexcontrolBinding->addParam(kParamLumMaster, 1, 0.0, 2.0, 0.0, 2.0, 1.0);
-
-  // Slot 24 (CC 33): Red Luma Band
-  m_nexcontrolBinding->addParam(kLumNames[0], 1, 0.0, 2.0, 0.0, 2.0, 1.0);
 
   // Sync Node ID for MCNexus AXUIElement Inspector Tracker
   m_InstanceInfo = fetchStringParam("instance_info");
@@ -718,6 +725,9 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
   publishLicenseReport();
 #endif
   m_Publishing = false;
+  if (p_Args.reason == OFX::eChangeUserEdit && m_nexcontrolBinding != nullptr) {
+    m_nexcontrolBinding->notifyUserEdit(p_ParamName.c_str());
+  }
 }
 
 // ─── beginEdit ────────────────────────────────────────────────────────────
