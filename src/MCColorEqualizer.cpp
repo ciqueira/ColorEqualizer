@@ -728,7 +728,7 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
         kParamSpaceType, NEXCONTROL_PARAM_CHOICE, 0.0, 2.0, 0.0, 2.0, 1.0);
   }
 
-  // Sync Node ID for MCNexus AXUIElement Inspector Tracker
+  // Update focus anchor parameter with the unique instance ID
   m_InstanceInfo = fetchStringParam("instance_info");
   if (m_InstanceInfo && m_nexcontrolBinding) {
     std::string info = "Node Instance (ID: " + std::to_string(m_nexcontrolBinding->instance_id()) + ")";
