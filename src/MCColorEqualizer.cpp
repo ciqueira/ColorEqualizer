@@ -30,6 +30,13 @@
 #endif
 #include <windows.h>
 #include <shellapi.h>
+#elif defined(__APPLE__)
+#include <cerrno>
+#include <fcntl.h>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <unistd.h>
+extern char **environ;
 #endif
 #include "ofxsImageEffect.h"
 #include "ofxsMultiThread.h"
@@ -166,12 +173,135 @@ static int openUrlForNotice(const char *url) {
 #endif
 }
 
-static void openMCNexusApp() {
+static std::string urlEncodeQueryValue(const char *raw) {
+  if (!raw) return {};
+  static const char kHex[] = "0123456789ABCDEF";
+  std::string out;
+  for (const unsigned char *p = reinterpret_cast<const unsigned char *>(raw);
+       *p != '\0'; ++p) {
+    const unsigned char c = *p;
+    const bool isUnreserved =
+        (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+        (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' ||
+        c == '~';
+    if (isUnreserved) {
+      out.push_back(static_cast<char>(c));
+    } else {
+      out.push_back('%');
+      out.push_back(kHex[(c >> 4) & 0x0F]);
+      out.push_back(kHex[c & 0x0F]);
+    }
+  }
+  return out;
+}
+
 #ifdef __APPLE__
-  std::system(
-      "open -a MCNexus >/dev/null 2>&1 || open \"/Applications/MCNexus.app\" "
-      ">/dev/null 2>&1");
+static bool isMCNexusInstalledMac() {
+  if (access("/Applications/MCNexus.app", F_OK) == 0) {
+    return true;
+  }
+  const char *home = std::getenv("HOME");
+  if (home && home[0] != '\0') {
+    std::string userApp = std::string(home) + "/Applications/MCNexus.app";
+    if (access(userApp.c_str(), F_OK) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool spawnOpenAndWait(const char *const argv[]) {
+  posix_spawn_file_actions_t actions;
+  if (posix_spawn_file_actions_init(&actions) != 0) {
+    return false;
+  }
+
+  int initStatus =
+      posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+  if (initStatus == 0) {
+    initStatus = posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO,
+                                                  "/dev/null", O_WRONLY, 0);
+  }
+  if (initStatus == 0) {
+    initStatus = posix_spawn_file_actions_addopen(&actions, STDERR_FILENO,
+                                                  "/dev/null", O_WRONLY, 0);
+  }
+
+  pid_t pid = 0;
+  const int rc = (initStatus == 0)
+      ? posix_spawn(&pid, "/usr/bin/open", &actions, nullptr,
+                    const_cast<char *const *>(argv), environ)
+      : initStatus;
+
+  posix_spawn_file_actions_destroy(&actions);
+  if (rc != 0) {
+    return false;
+  }
+
+  int status = 0;
+  while (waitpid(pid, &status, 0) < 0) {
+    if (errno == EINTR) {
+      continue;
+    }
+    // Host applications (e.g., DaVinci Resolve) may ignore or reap SIGCHLD,
+    // causing waitpid to fail with ECHILD even when posix_spawn succeeded.
+    if (errno == ECHILD) {
+      return isMCNexusInstalledMac();
+    }
+    return false;
+  }
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+#endif
+
+#ifdef _WIN32
+static bool tryOpenDeepLinkSilentWindows(const std::string &utf8Url) {
+  const int wideLen =
+      MultiByteToWideChar(CP_UTF8, 0, utf8Url.c_str(), -1, nullptr, 0);
+  if (wideLen <= 0) {
+    return false;
+  }
+  std::wstring wideUrl(static_cast<std::size_t>(wideLen), L'\0');
+  if (MultiByteToWideChar(CP_UTF8, 0, utf8Url.c_str(), -1, &wideUrl[0],
+                          wideLen) <= 0) {
+    return false;
+  }
+
+  SHELLEXECUTEINFOW sei = {};
+  sei.cbSize = sizeof(sei);
+  sei.fMask = SEE_MASK_FLAG_NO_UI;
+  sei.lpVerb = L"open";
+  sei.lpFile = wideUrl.c_str();
+  sei.nShow = SW_SHOWNORMAL;
+  return ShellExecuteExW(&sei) != FALSE;
+}
+#endif
+
+static void openMCNexusApp() {
+  const std::string updatesDeepLink =
+      std::string("mcnexus://updates/") + MC_NEXKEY_TENANT +
+      "?variant=" + urlEncodeQueryValue(MC_NEXKEY_VARIANT);
+
+#ifdef __APPLE__
+  const char *const deepLinkArgs[] = {"open", updatesDeepLink.c_str(), nullptr};
+  if (spawnOpenAndWait(deepLinkArgs)) {
+    return;
+  }
+  const char *const appNameArgs[] = {"open", "-a", "MCNexus", nullptr};
+  if (spawnOpenAndWait(appNameArgs)) {
+    return;
+  }
+  const char *const appPathArgs[] = {"open", "/Applications/MCNexus.app", nullptr};
+  if (spawnOpenAndWait(appPathArgs)) {
+    return;
+  }
+  const char *const fallbackSiteArgs[] = {"open", "https://mcnexus.app", nullptr};
+  spawnOpenAndWait(fallbackSiteArgs);
 #elif defined(_WIN32)
+  if (tryOpenDeepLinkSilentWindows(updatesDeepLink)) {
+    return;
+  }
+
   auto shellExecuteWindowsPath = [](const wchar_t *path,
                                     const wchar_t *parameters) {
     HINSTANCE result =
