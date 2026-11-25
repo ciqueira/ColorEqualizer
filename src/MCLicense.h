@@ -447,6 +447,10 @@ public:
         lastSyncOk_.store(result == NEXKEYRUNTIME_OK, std::memory_order_release);
         lastSyncAt_.store(static_cast<long long>(std::time(nullptr)),
                           std::memory_order_release);
+        // Apply the result off the UI thread; the next host callback picks
+        // the new verdict up through allowed().
+        refresh();
+        lastUserSyncEndMs_.store(steadyNowMs(), std::memory_order_release);
         syncInFlight_.store(false, std::memory_order_release);
       });
     } catch (...) {
@@ -454,6 +458,27 @@ public:
       // forever, which is what a stuck flag would do.
       syncInFlight_.store(false, std::memory_order_release);
     }
+  }
+
+  // What the shipped "Refresh License" button calls. NEVER blocks the UI
+  // thread and never queues network work:
+  //  - the local receipt is always re-read (throttled to 1/s, disk only);
+  //  - a network sync starts only when none is in flight AND the last one
+  //    ended more than kUserSyncCooldownMs ago. Clicks in between are
+  //    coalesced into the sync already running (or the one that just ended).
+  // Returns true when a network sync was started by this click.
+  bool requestUserRefresh() {
+    refreshIfStale(1);
+    if (!handle_ || !configured_) return false;
+    if (syncInFlight_.load(std::memory_order_acquire)) return false;
+    const long long lastEnd = lastUserSyncEndMs_.load(std::memory_order_acquire);
+    if (lastEnd != 0 && steadyNowMs() - lastEnd < kUserSyncCooldownMs) {
+      return false;
+    }
+    const unsigned long before = manualSyncs_.load(std::memory_order_acquire);
+    syncNowAsync();
+    return syncInFlight_.load(std::memory_order_acquire) ||
+           manualSyncs_.load(std::memory_order_acquire) != before;
   }
 
   void waitForSync(int budgetMs = 1500) {
@@ -644,6 +669,13 @@ private:
   std::atomic<int> lastSyncStatus_{-1};
   std::atomic<long long> lastSyncAt_{0};
   std::atomic<bool> syncInFlight_{false};
+  std::atomic<long long> lastUserSyncEndMs_{0};
+  static constexpr long long kUserSyncCooldownMs = 10000;
+  static long long steadyNowMs() {
+    return static_cast<long long>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
+  }
   std::atomic<long long> lastLocalReadAt_{0};
   std::thread syncWorker_;
   std::thread recheckWorker_;
@@ -665,6 +697,7 @@ public:
   void refreshIfStale(int = 3) {}
   void syncNow() {}
   void syncNowAsync() {}
+  bool requestUserRefresh() { return false; }
   bool allowed() const { return true; }
 
   LicenseReport report() const {

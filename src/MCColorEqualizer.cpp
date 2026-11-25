@@ -773,22 +773,12 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
     // a runtime label (OFX hosts are not obliged to refresh labels).
     m_Notices.openAction();
   } else if (p_ParamName == kParamLicenseRefreshBtn) {
-    // DISK FIRST, ALWAYS. Re-le o recibo do disco imediatamente.
-    m_License.refresh();
-
-    // Cooldown de 3 segundos para sincronizacao de rede contra cliques repetidos
-    static std::atomic<long long> s_lastRefreshClickTime{0};
-    long long nowSec = static_cast<long long>(std::time(nullptr));
-    long long prevSec = s_lastRefreshClickTime.load(std::memory_order_relaxed);
-
-    if (nowSec < prevSec || nowSec - prevSec >= 3) {
-      s_lastRefreshClickTime.store(nowSec, std::memory_order_relaxed);
-      m_License.syncNowAsync();
-      m_Notices.poke(true);
-      m_Notices.waitForCheck(mc::kCheckWaitBudgetMs);
-      m_License.waitForSync(1500);
-      m_RepublishNotice = true;
-    }
+    // Never blocks the UI thread; repeated clicks are coalesced (see
+    // License::requestUserRefresh). No visual feedback by design.
+    m_License.requestUserRefresh();
+    // Separate 30 s cooldown; the result is painted by takeSettled() on a
+    // later host callback, never by blocking here.
+    m_Notices.requestUserCheck();
   }
 #ifdef MC_NEXKEY_DIAGNOSTICS
   else if (p_ParamName == kParamLicenseSync "Btn") {
@@ -847,7 +837,8 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
   // licence the group goes quiet (publishNotice() reads allowed()), and
   // leaving "a new version is available" on screen while every other control
   // disappears would be worse than republishing.
-  if (m_RepublishNotice || m_GateHidden != gateWas) {
+  const bool noticeSettled = m_Notices.takeSettled();
+  if (m_RepublishNotice || noticeSettled || m_GateHidden != gateWas) {
     publishNotice();
     m_RepublishNotice = false;
   }

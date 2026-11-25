@@ -27,6 +27,7 @@
 
 #include "MCLicense.h"
 
+#include <atomic>
 #include <chrono>
 #include <mutex>
 #include <string>
@@ -310,6 +311,38 @@ public:
     if (handle_) nexkeyruntime_request_check(handle_, force ? 1 : 0);
   }
 
+  // What the Refresh License button calls. Non-blocking: fires a forced
+  // check at most once per kUserCheckCooldownMs per process (clicks in
+  // between are absorbed) and remembers THIS instance is waiting for the
+  // answer. The panel is repainted later, through takeSettled().
+  bool requestUserCheck() {
+    if (!handle_) return false;
+    static std::atomic<long long> s_lastMs{0};
+    const long long now = static_cast<long long>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
+    const long long last = s_lastMs.load(std::memory_order_acquire);
+    if (last != 0 && now - last < kUserCheckCooldownMs) return false;
+    s_lastMs.store(now, std::memory_order_release);
+    poke(true);
+    checkPending_.store(true, std::memory_order_release);
+    return true;
+  }
+
+  // True exactly once after a check requested by requestUserCheck() has
+  // left CHECKING. Never waits; call it from any host callback.
+  bool takeSettled() {
+    if (!handle_ || !checkPending_.load(std::memory_order_acquire)) return false;
+    NexKeyRuntimeUpdateSnapshot snapshot{};
+    snapshot.struct_size = sizeof(snapshot);
+    if (nexkeyruntime_get_snapshot(handle_, &snapshot) == NEXKEYRUNTIME_OK &&
+        snapshot.status == NEXKEYRUNTIME_UPDATE_CHECKING) {
+      return false;
+    }
+    checkPending_.store(false, std::memory_order_release);
+    return true;
+  }
+
   // Opens whatever the visible item points at.
   //
   // Uses the SAME decision as view(), through chooseActiveItem, and that is
@@ -317,6 +350,9 @@ public:
   // opened the notice whenever one existed, so a panel showing "version 0.1.2
   // is available" could open an unrelated maintenance notice instead. Two
   // copies of a priority rule drift; one cannot.
+  static constexpr long long kUserCheckCooldownMs = 30000;
+  std::atomic<bool> checkPending_{false};
+
   void openAction() {
     if (!handle_) return;
 
@@ -452,6 +488,8 @@ public:
   void shutdown() {}
   bool waitForCheck(int budgetMs) { (void)budgetMs; return false; }
   void poke(bool force = false) { (void)force; }
+  bool requestUserCheck() { return false; }
+  bool takeSettled() { return false; }
   void openAction() {}
   NoticeView view() const { return NoticeView(); }
 };
