@@ -15,6 +15,11 @@ Color Equalizer é distribuído pelo
 licenciamento, entrega de atualizações e suporte ao produto. O MCNexus é o
 aplicativo desktop usado para ativar, instalar, atualizar e gerenciar o plugin.
 
+> **Novo · Controle nativo via MIDI:** os sliders do Color Equalizer podem ser
+> ajustados com controladora MIDI via MCNexus como Hub, sem mouse, mapeamento
+> manual ou dependência de resolução de tela. Conecte a controladora e abra o
+> MCNexus. Veja os detalhes em [Controle nativo via MIDI](#controle-nativo-via-midi).
+
 ## Plugins Incluídos
 
 | Plugin | Versão | Distribuição | Chave Gratuita | Apoie o Projeto |
@@ -104,6 +109,31 @@ A licença gratuita permite uma ativação por vez.
 
 Perda de chave: o mesmo link de solicitação, aberto com a mesma conta GitHub,
 recupera a licença já emitida.
+
+## Controle nativo via MIDI
+
+Os sliders do Color Equalizer podem ser controlados por hardware MIDI via
+MCNexus como Hub, sem uso de mouse, mapeamento manual, dependência de resolução
+de tela ou permissões de Acessibilidade. Conecte a controladora e abra o MCNexus.
+
+- **Foco no node:** atua somente quando o node do Color Equalizer está
+  selecionado no Inspector, sem enviar comandos em nodes nativos (requer DaVinci
+  Resolve Studio).
+- **Bancos e paginação:** acesso a todos os parâmetros pelos bancos da
+  controladora e por bancos virtuais para modelos com menos knobs.
+- **Curva de sensibilidade:** resposta adaptativa à velocidade de giro do knob,
+  com escala proporcional ao intervalo de cada parâmetro, ajuste fino em
+  movimentos lentos e retorno imediato ao inverter a direção.
+- **Reset e Undo:** clique no knob para retornar o parâmetro ao padrão; ajustes
+  contínuos são agrupados no histórico de Undo do Resolve.
+
+### NexControl MIDI HUB
+
+- **Controladoras compatíveis:** perfis embutidos para Midi Fighter Twister e
+  Behringer X-TOUCH MINI, perfis adicionais para download e detecção automática
+  para modelos genéricos.
+- **Portas e controle:** seleção ou liberação individual de portas MIDI e pausa
+  do hub pela barra de menus (macOS) ou systray (Windows).
 
 ## Apoie o Projeto
 

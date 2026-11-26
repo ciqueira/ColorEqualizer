@@ -13,6 +13,11 @@ Color Equalizer is distributed through
 licensing, update delivery, and product support. MCNexus is the desktop
 application used to activate, install, update, and manage the plugin.
 
+> **New · Native MIDI control:** Color Equalizer sliders can be adjusted with a
+> MIDI controller through MCNexus as Hub, without mouse input, manual mapping,
+> or screen-resolution dependency. Connect the controller and open MCNexus. See
+> [Native MIDI Control](#native-midi-control) for details.
+
 ## Included Plugins
 
 | Plugin | Version | Distribution | Free Key | Support Project |
@@ -102,6 +107,31 @@ The free license permits one activation at a time.
 
 Lost key: open the same claim link with the same GitHub account to recover the
 issued license.
+
+## Native MIDI Control
+
+Color Equalizer sliders can be adjusted with a MIDI controller through MCNexus
+as Hub without mouse input, manual mapping, screen-resolution dependency, or
+Accessibility permissions. Connect the controller and open MCNexus.
+
+- **Node focus:** active only when the Color Equalizer node is focused in the
+  Inspector, with no input sent on native nodes (requires DaVinci Resolve
+  Studio).
+- **Banks and paging:** full parameter access through controller banks and
+  virtual-bank paging for controllers with fewer knobs.
+- **Sensitivity curve:** velocity-adaptive knob response scaled to each
+  parameter's range, providing fine control on slow turns and immediate reset
+  when reversing direction.
+- **Reset and Undo:** press a knob to reset a parameter to default; continuous
+  adjustments are grouped in Resolve's Undo history.
+
+### NexControl MIDI HUB
+
+- **Supported controllers:** built-in profiles for Midi Fighter Twister and
+  Behringer X-TOUCH MINI, downloadable profiles for other models, and
+  auto-detection for generic controllers.
+- **Ports and hub control:** enable or release individual MIDI ports and pause
+  or resume the hub from the menu bar (macOS) or system tray (Windows).
 
 ## Support the Project
 
