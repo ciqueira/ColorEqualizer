@@ -133,6 +133,9 @@ Accessibility permissions. Connect the controller and open MCNexus.
 - **Ports and hub control:** enable or release individual MIDI ports and pause
   or resume the hub from the menu bar (macOS) or system tray (Windows).
 
+Implementation details, additional models, and profiles are available in the
+[NexControl documentation](https://mcnexus.app/docs/developers/midi/).
+
 ## Support the Project
 
 Color Equalizer remains available free of charge with all currently published

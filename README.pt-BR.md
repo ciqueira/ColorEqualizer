@@ -135,6 +135,9 @@ de tela ou permissões de Acessibilidade. Conecte a controladora e abra o MCNexu
 - **Portas e controle:** seleção ou liberação individual de portas MIDI e pausa
   do hub pela barra de menus (macOS) ou systray (Windows).
 
+Detalhes de implementação, outros modelos e perfis estão na
+[documentação do NexControl](https://mcnexus.app/pt-BR/docs/developers/midi/).
+
 ## Apoie o Projeto
 
 O Color Equalizer permanece disponível gratuitamente com todos os recursos do
