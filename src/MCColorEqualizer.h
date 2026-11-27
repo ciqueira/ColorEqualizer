@@ -2,7 +2,7 @@
 // MCColorEqualizer.h
 // -----------------------------------------------------------------------------
 // 10-Band Color Equalizer — Hue, Saturation, Brightness.
-// GPU: Metal (macOS), CUDA (Windows/Linux).
+// GPU: Metal (macOS), CUDA (Windows).
 // =============================================================================
 
 #pragma once

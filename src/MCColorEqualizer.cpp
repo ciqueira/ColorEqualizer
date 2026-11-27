@@ -6,7 +6,7 @@
 //
 // GPU dispatch:
 //   macOS   → Metal
-//   Win/Lin → CUDA
+//   Win     → CUDA
 //
 // Ported from:
 //   MC Color Equalizer Hue.dctl + Sat.dctl + Bri.dctl
@@ -18,6 +18,8 @@
 #include "MCLicense.h"
 #include "MCNotice.h"
 
+#include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -32,16 +34,18 @@
 #include <shellapi.h>
 #elif defined(__APPLE__)
 #include <cerrno>
+#include <crt_externs.h>
 #include <fcntl.h>
 #include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
-extern char **environ;
 #endif
 #include "ofxsImageEffect.h"
 #include "ofxsMultiThread.h"
 #include "ofxsProcessing.h"
+#ifdef MC_NEXCONTROL_ENABLED
 #include "MCNexControl.h"
+#endif
 
 // ─── Plugin identity constants ─────────────────────────────────────────────
 #ifndef PLUGIN_VERSION
@@ -129,50 +133,32 @@ static int mapSpaceType(int uiIndex) {
   }
 }
 
-static void openExternalUrl(const char *url) {
-#ifdef _WIN32
-  ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
-#elif defined(__APPLE__)
-  std::string command = "open \"";
-  command += url;
-  command += "\" >/dev/null 2>&1";
-  std::system(command.c_str());
-#else
-  std::string command = "xdg-open \"";
-  command += url;
-  command += "\" >/dev/null 2>&1 &";
-  std::system(command.c_str());
-#endif
+static bool isSafeExternalUrl(const char *url) {
+  if (!url || url[0] == '\0') return false;
+  const std::string s(url);
+  auto startsWithIgnoreCase = [&s](const char *prefix) {
+    const std::size_t n = std::strlen(prefix);
+    if (s.size() < n) return false;
+    for (std::size_t i = 0; i < n; ++i) {
+      if (std::tolower(static_cast<unsigned char>(s[i])) != prefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  };
+  if (!startsWithIgnoreCase("https://") && !startsWithIgnoreCase("http://") &&
+      !startsWithIgnoreCase("mcnexus://")) {
+    return false;
+  }
+  for (unsigned char c : s) {
+    if (c <= 0x20 || c >= 0x7F || c == '"' || c == '\'' || c == '\\') {
+      return false;
+    }
+  }
+  return true;
 }
 
-// Same launchers, but reporting whether it worked.
-//
-// openExternalUrl() above returns void, which is fine for a fixed https link
-// that always resolves. It is not fine here: the SDK decides whether to fall
-// back from the mcnexus:// deep link to the https:// one by asking whether
-// the first attempt opened, so swallowing the failure would leave anyone
-// without MCNexus installed pressing a button that does nothing.
-static int openUrlForNotice(const char *url) {
-  if (!url || url[0] == '\0') return 0;
-#ifdef _WIN32
-  HINSTANCE result =
-      ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
-  return reinterpret_cast<intptr_t>(result) > 32 ? 1 : 0;
-#elif defined(__APPLE__)
-  // `open` exits non-zero when no application claims the scheme, which is
-  // exactly the signal needed and costs nothing to read.
-  std::string command = "open \"";
-  command += url;
-  command += "\" >/dev/null 2>&1";
-  return std::system(command.c_str()) == 0 ? 1 : 0;
-#else
-  std::string command = "xdg-open \"";
-  command += url;
-  command += "\" >/dev/null 2>&1";
-  return std::system(command.c_str()) == 0 ? 1 : 0;
-#endif
-}
-
+#ifdef MC_NEXKEY_ENABLED
 static std::string urlEncodeQueryValue(const char *raw) {
   if (!raw) return {};
   static const char kHex[] = "0123456789ABCDEF";
@@ -194,6 +180,7 @@ static std::string urlEncodeQueryValue(const char *raw) {
   }
   return out;
 }
+#endif
 
 #ifdef __APPLE__
 static bool isMCNexusInstalledMac() {
@@ -210,7 +197,8 @@ static bool isMCNexusInstalledMac() {
   return false;
 }
 
-static bool spawnOpenAndWait(const char *const argv[]) {
+static bool spawnOpenAndWait(const char *const argv[],
+                             bool checkMCNexusOnEchild = false) {
   posix_spawn_file_actions_t actions;
   if (posix_spawn_file_actions_init(&actions) != 0) {
     return false;
@@ -230,7 +218,7 @@ static bool spawnOpenAndWait(const char *const argv[]) {
   pid_t pid = 0;
   const int rc = (initStatus == 0)
       ? posix_spawn(&pid, "/usr/bin/open", &actions, nullptr,
-                    const_cast<char *const *>(argv), environ)
+                    const_cast<char *const *>(argv), *_NSGetEnviron())
       : initStatus;
 
   posix_spawn_file_actions_destroy(&actions);
@@ -246,7 +234,7 @@ static bool spawnOpenAndWait(const char *const argv[]) {
     // Host applications (e.g., DaVinci Resolve) may ignore or reap SIGCHLD,
     // causing waitpid to fail with ECHILD even when posix_spawn succeeded.
     if (errno == ECHILD) {
-      return isMCNexusInstalledMac();
+      return checkMCNexusOnEchild ? isMCNexusInstalledMac() : true;
     }
     return false;
   }
@@ -277,57 +265,63 @@ static bool tryOpenDeepLinkSilentWindows(const std::string &utf8Url) {
 }
 #endif
 
+static int openUrlForNotice(const char *url) {
+  if (!isSafeExternalUrl(url)) return 0;
+#ifdef _WIN32
+  return tryOpenDeepLinkSilentWindows(url) ? 1 : 0;
+#elif defined(__APPLE__)
+  const char *const args[] = {"open", url, nullptr};
+  return spawnOpenAndWait(args, false) ? 1 : 0;
+#else
+  return 0;
+#endif
+}
+
+static void openExternalUrl(const char *url) {
+  (void)openUrlForNotice(url);
+}
+
 static void openMCNexusApp() {
+#ifdef MC_NEXKEY_ENABLED
   const std::string updatesDeepLink =
       std::string("mcnexus://updates/") + MC_NEXKEY_TENANT +
       "?variant=" + urlEncodeQueryValue(MC_NEXKEY_VARIANT);
+#endif
 
 #ifdef __APPLE__
+#ifdef MC_NEXKEY_ENABLED
   const char *const deepLinkArgs[] = {"open", updatesDeepLink.c_str(), nullptr};
-  if (spawnOpenAndWait(deepLinkArgs)) {
+  if (spawnOpenAndWait(deepLinkArgs, true)) {
     return;
   }
+#endif
   const char *const appNameArgs[] = {"open", "-a", "MCNexus", nullptr};
-  if (spawnOpenAndWait(appNameArgs)) {
+  if (spawnOpenAndWait(appNameArgs, true)) {
     return;
   }
   const char *const appPathArgs[] = {"open", "/Applications/MCNexus.app", nullptr};
-  if (spawnOpenAndWait(appPathArgs)) {
+  if (spawnOpenAndWait(appPathArgs, true)) {
     return;
   }
   const char *const fallbackSiteArgs[] = {"open", "https://mcnexus.app", nullptr};
-  spawnOpenAndWait(fallbackSiteArgs);
+  spawnOpenAndWait(fallbackSiteArgs, false);
 #elif defined(_WIN32)
+#ifdef MC_NEXKEY_ENABLED
   if (tryOpenDeepLinkSilentWindows(updatesDeepLink)) {
     return;
   }
+#endif
 
   auto shellExecuteWindowsPath = [](const wchar_t *path,
                                     const wchar_t *parameters) {
-    HINSTANCE result =
-        ShellExecuteW(nullptr, L"open", path, parameters, nullptr, SW_SHOWNORMAL);
-    return reinterpret_cast<intptr_t>(result) > 32;
-  };
-
-  auto launchPowerShellHidden = [](const wchar_t *parameters) {
-    std::wstring commandLine = L"powershell.exe ";
-    commandLine += parameters;
-
-    STARTUPINFOW startupInfo = {};
-    startupInfo.cb = sizeof(startupInfo);
-    startupInfo.dwFlags = STARTF_USESHOWWINDOW;
-    startupInfo.wShowWindow = SW_HIDE;
-
-    PROCESS_INFORMATION processInfo = {};
-    const BOOL created = CreateProcessW(
-        nullptr, &commandLine[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
-        nullptr, nullptr, &startupInfo, &processInfo);
-    if (!created) {
-      return false;
-    }
-    CloseHandle(processInfo.hThread);
-    CloseHandle(processInfo.hProcess);
-    return true;
+    SHELLEXECUTEINFOW sei = {};
+    sei.cbSize = sizeof(sei);
+    sei.fMask = SEE_MASK_FLAG_NO_UI;
+    sei.lpVerb = L"open";
+    sei.lpFile = path;
+    sei.lpParameters = parameters;
+    sei.nShow = SW_SHOWNORMAL;
+    return ShellExecuteExW(&sei) != FALSE;
   };
 
   auto launchWindowsExecutableIfExists = [&](const wchar_t *pathWithEnvironment) {
@@ -353,15 +347,7 @@ static void openMCNexusApp() {
     return;
   }
 
-  constexpr const wchar_t *kPowerShellArgs =
-      LR"PS(-NoProfile -WindowStyle Hidden -Command "$app = Get-StartApps | Where-Object { $_.Name -eq 'MCNexus' } | Select-Object -First 1; if ($app) { Start-Process ('shell:AppsFolder\' + $app.AppID) } else { Start-Process 'https://apps.microsoft.com/detail/9n1qqt1xc825?hl=en-US&gl=US' }")PS";
-  if (launchPowerShellHidden(kPowerShellArgs)) {
-    return;
-  }
-
   openExternalUrl("https://apps.microsoft.com/detail/9n1qqt1xc825?hl=en-US&gl=US");
-#else
-  openExternalUrl("https://mcnexus.app");
 #endif
 }
 
@@ -369,7 +355,7 @@ static void openMCNexusApp() {
 // GPU kernel forward declarations
 // =============================================================================
 
-#ifndef __APPLE__
+#ifdef _WIN32
 extern "C" bool
 RunCudaKernel(void *p_Stream, int p_RenderX1, int p_RenderY1, int p_RenderWidth,
               int p_RenderHeight, int p_SrcBoundsX1, int p_SrcBoundsY1,
@@ -410,7 +396,7 @@ public:
   // ── GPU overrides ─────────────────────────────────────────────────────
 
   virtual void processImagesCuda() override {
-#ifndef __APPLE__
+#ifdef _WIN32
     const OfxRectI &srcBounds = _srcImg->getBounds();
     const OfxRectI &dstBounds = _dstImg->getBounds();
     const int renderX1 =
@@ -426,7 +412,9 @@ public:
 
     const int srcRowBytes = _srcImg->getRowBytes();
     const int dstRowBytes = _dstImg->getRowBytes();
-    if (srcRowBytes <= 0 || dstRowBytes <= 0)
+    if (srcRowBytes <= 0 || dstRowBytes <= 0 ||
+        (srcRowBytes % static_cast<int>(sizeof(float))) != 0 ||
+        (dstRowBytes % static_cast<int>(sizeof(float))) != 0)
       OFX::throwSuiteStatusException(kOfxStatErrUnsupported);
 
     const float *input = static_cast<const float *>(_srcImg->getPixelData());
@@ -464,7 +452,9 @@ public:
 
     const int srcRowBytes = _srcImg->getRowBytes();
     const int dstRowBytes = _dstImg->getRowBytes();
-    if (srcRowBytes <= 0 || dstRowBytes <= 0)
+    if (srcRowBytes <= 0 || dstRowBytes <= 0 ||
+        (srcRowBytes % static_cast<int>(sizeof(float))) != 0 ||
+        (dstRowBytes % static_cast<int>(sizeof(float))) != 0)
       OFX::throwSuiteStatusException(kOfxStatErrUnsupported);
 
     const float *input = static_cast<const float *>(_srcImg->getPixelData());
@@ -564,9 +554,6 @@ private:
 
   // Guards against publishNotice()'s own writes re-entering changedParam.
   bool m_Publishing = false;
-  // Set by the Refresh License button only. It is the one user edit allowed
-  // to touch the notice group — see changedParam().
-  bool m_RepublishNotice = false;
   mc::Notices m_Notices;
   OFX::GroupParam *m_NoticeGroup = nullptr;
   OFX::StringParam *m_NoticeText = nullptr;
@@ -585,8 +572,10 @@ private:
   OFX::StringParam *m_DiagHost = nullptr;
 #endif
 
+#ifdef MC_NEXCONTROL_ENABLED
   OFX::StringParam *m_InstanceInfo = nullptr;
   std::unique_ptr<mc::nexcontrol::InstanceBinding> m_nexcontrolBinding;
+#endif
 };
 
 // ─── Constructor ──────────────────────────────────────────────────────────
@@ -691,6 +680,7 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
 #endif
   m_Publishing = false;
 
+#ifdef MC_NEXCONTROL_ENABLED
   // Initialize NexControl MIDI client
   if (OFX::Private::gHost) {
     mc::nexcontrol::init(OFX::Private::gHost, m_License.handle());
@@ -736,12 +726,15 @@ MCColorEqualizerPlugin::MCColorEqualizerPlugin(OfxImageEffectHandle p_Handle)
     try { m_InstanceInfo->setValue(info); } catch (...) {}
     m_Publishing = false;
   }
+#endif
 }
 
 // ─── Destructor ───────────────────────────────────────────────────────────
 
 MCColorEqualizerPlugin::~MCColorEqualizerPlugin() {
+#ifdef MC_NEXCONTROL_ENABLED
   m_nexcontrolBinding.reset();
+#endif
 }
 
 // ─── changedParam ─────────────────────────────────────────────────────────
@@ -838,17 +831,18 @@ void MCColorEqualizerPlugin::changedParam(const OFX::InstanceChangedArgs &p_Args
   // leaving "a new version is available" on screen while every other control
   // disappears would be worse than republishing.
   const bool noticeSettled = m_Notices.takeSettled();
-  if (m_RepublishNotice || noticeSettled || m_GateHidden != gateWas) {
+  if (noticeSettled || m_GateHidden != gateWas) {
     publishNotice();
-    m_RepublishNotice = false;
   }
 #ifdef MC_NEXKEY_DIAGNOSTICS
   publishLicenseReport();
 #endif
   m_Publishing = false;
+#ifdef MC_NEXCONTROL_ENABLED
   if (p_Args.reason == OFX::eChangeUserEdit && m_nexcontrolBinding != nullptr) {
     m_nexcontrolBinding->notifyUserEdit(p_ParamName.c_str());
   }
+#endif
 }
 
 // ─── beginEdit ────────────────────────────────────────────────────────────
@@ -937,6 +931,23 @@ void MCColorEqualizerPlugin::render(const OFX::RenderArguments &p_Args) {
 
 // ─── isIdentity ───────────────────────────────────────────────────────────
 
+static bool eqParamsAreIdentity(const EQParams &p) {
+  constexpr float kEps = 1e-7f;
+  const bool hueMasterZero = std::fabs(p.hueMaster) < kEps;
+  const bool satMasterZero = std::fabs(p.satMaster) < kEps;
+  const bool lumMasterZero = std::fabs(p.lumMaster) < kEps;
+
+  for (int i = 0; i < 10; ++i) {
+    if (!hueMasterZero && std::fabs(p.hueVals[i]) >= kEps)
+      return false;
+    if (!satMasterZero && std::fabs(p.satVals[i] - 1.0f) >= kEps)
+      return false;
+    if (!lumMasterZero && std::fabs(p.lumVals[i] - 1.0f) >= kEps)
+      return false;
+  }
+  return true;
+}
+
 bool MCColorEqualizerPlugin::isIdentity(const OFX::IsIdentityArguments &p_Args,
                                         OFX::Clip *&p_IdentityClip,
                                         double &p_IdentityTime) {
@@ -946,6 +957,13 @@ bool MCColorEqualizerPlugin::isIdentity(const OFX::IsIdentityArguments &p_Args,
   // is an optimisation, and a host that ignores isIdentity must still not
   // get the effect applied.
   if (!m_License.allowed()) {
+    p_IdentityClip = m_SrcClip;
+    p_IdentityTime = p_Args.time;
+    return true;
+  }
+  if (m_SrcClip && m_DstClip &&
+      m_SrcClip->getPreMultiplication() == m_DstClip->getPreMultiplication() &&
+      eqParamsAreIdentity(getActiveParams(p_Args.time))) {
     p_IdentityClip = m_SrcClip;
     p_IdentityTime = p_Args.time;
     return true;
@@ -1125,13 +1143,16 @@ void MCColorEqualizerPlugin::setupAndProcess(
 #ifdef __APPLE__
   if (!p_Args.isEnabledMetalRender)
     OFX::throwSuiteStatusException(kOfxStatErrUnsupported);
-#else
+#elif defined(_WIN32)
   if (!p_Args.isEnabledCudaRender)
     OFX::throwSuiteStatusException(kOfxStatErrUnsupported);
 #endif
 
   std::unique_ptr<OFX::Image> dst(m_DstClip->fetchImage(p_Args.time));
   std::unique_ptr<OFX::Image> src(m_SrcClip->fetchImage(p_Args.time));
+  if (!dst || !src) {
+    OFX::throwSuiteStatusException(kOfxStatFailed);
+  }
 
   if ((src->getPixelDepth() != dst->getPixelDepth()) ||
       (src->getPixelComponents() != dst->getPixelComponents())) {
@@ -1169,7 +1190,7 @@ void MCColorEqualizerPlugin::setupAndProcess(
   p_Processor.buildLut();
 #ifdef __APPLE__
   p_Processor.processImagesMetal();
-#else
+#elif defined(_WIN32)
   p_Processor.processImagesCuda();
 #endif
 }
@@ -1183,7 +1204,9 @@ MCColorEqualizerFactory::MCColorEqualizerFactory()
           kPluginIdentifier, kPluginVersionMajor, kPluginVersionMinor) {}
 
 void MCColorEqualizerFactory::unload() {
+#ifdef MC_NEXCONTROL_ENABLED
   mc::nexcontrol::shutdown();
+#endif
 }
 
 // ─── describe ─────────────────────────────────────────────────────────────
@@ -1208,7 +1231,7 @@ void MCColorEqualizerFactory::describe(OFX::ImageEffectDescriptor &p_Desc) {
 
 #ifdef __APPLE__
   p_Desc.setSupportsMetalRender(true);
-#else
+#elif defined(_WIN32)
   p_Desc.setSupportsCudaRender(true);
   p_Desc.setSupportsCudaStream(true);
 #endif
@@ -1464,13 +1487,11 @@ void MCColorEqualizerFactory::describeInContext(
     OFX::PushButtonParamDescriptor *appMCNexus =
         p_Desc.definePushButtonParam(kParamAppMCNexus);
     appMCNexus->setLabels("App MCNexus", "App MCNexus", "App MCNexus");
-#if !defined(__APPLE__) && !defined(_WIN32)
-    appMCNexus->setEnabled(false);
-#endif
     appMCNexus->setParent(*grp);
     page->addChild(*appMCNexus);
   }
 
+#ifdef MC_NEXCONTROL_ENABLED
   // ════════════════════════════════════════════════════════════════════
   // Group: NexControl (Closed by default, dedicated group)
   // ════════════════════════════════════════════════════════════════════
@@ -1490,6 +1511,7 @@ void MCColorEqualizerFactory::describeInContext(
     instParam->setParent(*grp);
     page->addChild(*instParam);
   }
+#endif
 
   // ════════════════════════════════════════════════════════════════════
   // Group: License — DIAGNOSTICS ONLY (build with NEXKEY_DIAGNOSTICS=1)

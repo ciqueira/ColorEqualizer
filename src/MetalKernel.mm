@@ -8,6 +8,7 @@
 
 #include "EQParams.h"
 #import <Metal/Metal.h>
+#include <cstdint>
 #include <cstdio>
 #include <mutex>
 #include <unordered_map>
@@ -465,8 +466,7 @@ kernel void ColorEqualizerKernel(
 // ─── Pipeline cache ──────────────────────────────────────────────────────
 
 static std::mutex s_Mutex;
-static std::unordered_map<id<MTLCommandQueue>, id<MTLComputePipelineState>>
-    s_PipelineMap;
+static std::unordered_map<uint64_t, id<MTLComputePipelineState>> s_PipelineMap;
 
 // ─── Entry point called from MCColorEqualizer.cpp ─────────────────────────
 
@@ -480,18 +480,24 @@ extern "C" bool RunMetalKernel(
   @autoreleasepool {
     if (!p_CmdQ || !p_Input || !p_Output || !p_Lut ||
         p_RenderWidth <= 0 || p_RenderHeight <= 0 ||
-        p_SrcRowBytes <= 0 || p_DstRowBytes <= 0) {
+        p_SrcRowBytes <= 0 || p_DstRowBytes <= 0 ||
+        (p_SrcRowBytes % static_cast<int>(sizeof(float))) != 0 ||
+        (p_DstRowBytes % static_cast<int>(sizeof(float))) != 0) {
       return false;
     }
 
     id<MTLCommandQueue> queue = static_cast<id<MTLCommandQueue>>(p_CmdQ);
     id<MTLDevice> device = queue.device;
+    if (!device) {
+      return false;
+    }
+    const uint64_t deviceKey = static_cast<uint64_t>(device.registryID);
 
     // ── Build / retrieve cached pipeline ──────────────────────────────────
     id<MTLComputePipelineState> pipelineState;
     {
       std::lock_guard<std::mutex> lock(s_Mutex);
-      auto it = s_PipelineMap.find(queue);
+      auto it = s_PipelineMap.find(deviceKey);
       if (it == s_PipelineMap.end()) {
         NSError *err = nil;
         MTLCompileOptions *options = [[MTLCompileOptions alloc] init];
@@ -538,7 +544,7 @@ extern "C" bool RunMetalKernel(
                   err.localizedDescription.UTF8String);
           return false;
         }
-        s_PipelineMap[queue] = pipelineState;
+        s_PipelineMap[deviceKey] = pipelineState;
       } else {
         pipelineState = it->second;
       }
@@ -577,7 +583,9 @@ extern "C" bool RunMetalKernel(
     [encoder setBytes:p_Lut length:256 * 3 * sizeof(float) atIndex:16];
 
     NSUInteger exeWidth = pipelineState.threadExecutionWidth;
+    if (exeWidth == 0) exeWidth = 1;
     NSUInteger maxHeight = pipelineState.maxTotalThreadsPerThreadgroup / exeWidth;
+    if (maxHeight == 0) maxHeight = 1;
 
     MTLSize threadsPerGroup = MTLSizeMake(exeWidth, maxHeight, 1);
     MTLSize threadgroups =

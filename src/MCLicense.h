@@ -23,6 +23,8 @@
 #include <string>
 #include <thread>
 
+struct NexKeyRuntimeLicenseHandle;
+
 #ifdef MC_NEXKEY_ENABLED
 #include <nexkeyruntime/nexkeyruntime.h>
 #include <cstdint>
@@ -117,7 +119,7 @@ struct LicenseReport {
 inline std::string productDataBlob() {
 #ifdef MC_NEXKEY_PRODUCT_DATA
   return std::string(MC_NEXKEY_PRODUCT_DATA);
-#else
+#elif !MC_NEXKEY_ENFORCE
   const char *fromEnv = std::getenv("NEXKEYRUNTIME_PRODUCT_DATA");
   if (fromEnv && fromEnv[0] != '\0') return std::string(fromEnv);
   const char *fromFile = std::getenv("NEXKEYRUNTIME_PRODUCT_FILE");
@@ -137,6 +139,8 @@ inline std::string productDataBlob() {
       return text;
     }
   }
+  return std::string();
+#else
   return std::string();
 #endif
 }
@@ -498,7 +502,7 @@ public:
   // licensing existed.
   bool allowed() const {
 #if MC_NEXKEY_ENFORCE
-    if (!handle_) return true; // licensing not compiled in: never gate
+    if (!handle_ || !configured_) return false;
     return nexkeyruntime_license_render_decision(handle_) ==
            NEXKEYRUNTIME_RENDER_ALLOW;
 #else
@@ -510,7 +514,7 @@ public:
   // being enforced. This is what the UI shows; allowed() is what the render
   // path obeys. They differ on purpose in shadow mode, and the UI says so.
   bool licenseAllows() const {
-    if (!handle_) return true;
+    if (!handle_ || !configured_) return false;
     return nexkeyruntime_license_render_decision(handle_) ==
            NEXKEYRUNTIME_RENDER_ALLOW;
   }
@@ -699,6 +703,8 @@ public:
   void syncNowAsync() {}
   bool requestUserRefresh() { return false; }
   bool allowed() const { return true; }
+  bool licenseAllows() const { return true; }
+  NexKeyRuntimeLicenseHandle *handle() const { return nullptr; }
 
   LicenseReport report() const {
     LicenseReport out;

@@ -3,7 +3,7 @@
 // -----------------------------------------------------------------------------
 // CUDA GPU kernel for MCColorEqualizer.
 // Contains all color math inline (RGB Spherical, OKLCH + Equalizers).
-// Used on Windows and Linux only (__APPLE__ excluded at build time).
+// Used on Windows only (__APPLE__ excluded at build time).
 // =============================================================================
 
 #include "EQParams.h"
@@ -539,7 +539,9 @@ extern "C" bool RunCudaKernel(
     int p_inputCS, int p_spaceType, const float *p_Input, float *p_Output,
     const float *p_Lut) {
   if (!p_Input || !p_Output || !p_Lut || p_RenderWidth <= 0 ||
-      p_RenderHeight <= 0 || p_SrcRowBytes <= 0 || p_DstRowBytes <= 0) {
+      p_RenderHeight <= 0 || p_SrcRowBytes <= 0 || p_DstRowBytes <= 0 ||
+      (p_SrcRowBytes % static_cast<int>(sizeof(float))) != 0 ||
+      (p_DstRowBytes % static_cast<int>(sizeof(float))) != 0) {
     return false;
   }
 
